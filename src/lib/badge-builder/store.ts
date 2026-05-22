@@ -422,6 +422,64 @@ export function useBadgeStudio() {
     []
   );
 
+  const addOptions = useCallback(
+    (
+      categoryId: string,
+      drafts: Array<{ label: string; value: string; swatch?: string }>
+    ) => {
+      setState((s) => {
+        const category = s.library.categories.find((c) => c.id === categoryId);
+        if (!category) return s;
+
+        const existingLabels = new Set(
+          category.options.map((o) => o.label.toLowerCase().trim())
+        );
+        const existingValues = new Set(
+          category.options.map((o) => o.value.toLowerCase().trim())
+        );
+
+        const newOptions: BadgeOption[] = [];
+        for (const draft of drafts) {
+          const label = draft.label.trim();
+          const value = draft.value.trim();
+          if (!label || !value) continue;
+
+          const lLower = label.toLowerCase();
+          const vLower = value.toLowerCase();
+
+          if (!existingLabels.has(lLower) && !existingValues.has(vLower)) {
+            newOptions.push({
+              id: uid(),
+              label,
+              value,
+              ...(draft.swatch ? { swatch: draft.swatch.trim() } : {}),
+            });
+            existingLabels.add(lLower);
+            existingValues.add(vLower);
+          }
+        }
+
+        if (newOptions.length === 0) return s;
+
+        return {
+          ...s,
+          library: {
+            ...s.library,
+            categories: s.library.categories.map((c) =>
+              c.id === categoryId
+                ? {
+                    ...c,
+                    options: [...c.options, ...newOptions],
+                  }
+                : c
+            ),
+          },
+        };
+      });
+    },
+    []
+  );
+
   const updateOption = useCallback(
     (
       categoryId: string,
@@ -514,6 +572,7 @@ export function useBadgeStudio() {
     toggleTeamName,
     rollTeamName,
     addOption,
+    addOptions,
     updateOption,
     removeOption,
     setTemplate,

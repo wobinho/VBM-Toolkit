@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useBadgeStudio } from "@/lib/badge-builder/store";
 import { DEFAULT_BADGE_TEMPLATE } from "@/lib/badge-builder/presets";
 import type { BadgeCategory } from "@/lib/badge-builder/types";
@@ -140,6 +140,7 @@ export function BadgeLibrary({ bb }: Props) {
             key={active.id}
             category={active}
             onAdd={(draft) => bb.addOption(active.id, draft)}
+            onAddMultiple={(drafts) => bb.addOptions(active.id, drafts)}
             onUpdate={(optId, patch) =>
               bb.updateOption(active.id, optId, patch)
             }
@@ -160,11 +161,15 @@ export function BadgeLibrary({ bb }: Props) {
 function CategoryEditor({
   category,
   onAdd,
+  onAddMultiple,
   onUpdate,
   onRemove,
 }: {
   category: BadgeCategory;
   onAdd: (draft: { label: string; value: string; swatch?: string }) => void;
+  onAddMultiple: (
+    drafts: Array<{ label: string; value: string; swatch?: string }>
+  ) => void;
   onUpdate: (
     optId: string,
     patch: { label?: string; value?: string; swatch?: string }
@@ -172,6 +177,7 @@ function CategoryEditor({
   onRemove: (optId: string) => void;
 }) {
   const isColor = category.kind === "color";
+  const [showImport, setShowImport] = useState(false);
 
   return (
     <div className="card overflow-hidden">
@@ -188,10 +194,19 @@ function CategoryEditor({
               {category.slot} · {isColor ? "colour values" : "text values"}
             </div>
           </div>
-          <span className="tag text-[10px]">
-            {category.options.length} value
-            {category.options.length === 1 ? "" : "s"}
-          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="btn btn-secondary px-2.5 py-1 text-[11.5px] cursor-pointer"
+              onClick={() => setShowImport(true)}
+            >
+              Import CSV
+            </button>
+            <span className="tag text-[10px]">
+              {category.options.length} value
+              {category.options.length === 1 ? "" : "s"}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -274,6 +289,17 @@ function CategoryEditor({
 
         <AddValueForm isColor={isColor} onAdd={onAdd} />
       </div>
+
+      {showImport && (
+        <CsvImportModal
+          category={category}
+          onClose={() => setShowImport(false)}
+          onImport={(drafts) => {
+            onAddMultiple(drafts);
+            setShowImport(false);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -423,5 +449,411 @@ function ResetIcon() {
       <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
       <path d="M3 3v5h5" />
     </svg>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  CSV Import Tooling                                                        */
+/* -------------------------------------------------------------------------- */
+
+function parseCSV(text: string): string[][] {
+  const result: string[][] = [];
+  let row: string[] = [];
+  let currentVal = "";
+  let insideQuote = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    const nextChar = text[i + 1];
+
+    if (insideQuote) {
+      if (char === '"') {
+        if (nextChar === '"') {
+          currentVal += '"';
+          i++; // skip next quote
+        } else {
+          insideQuote = false;
+        }
+      } else {
+        currentVal += char;
+      }
+    } else {
+      if (char === '"') {
+        insideQuote = true;
+      } else if (char === ',') {
+        row.push(currentVal);
+        currentVal = "";
+      } else if (char === '\r' || char === '\n') {
+        row.push(currentVal);
+        currentVal = "";
+        result.push(row);
+        row = [];
+        if (char === '\r' && nextChar === '\n') {
+          i++;
+        }
+      } else {
+        currentVal += char;
+      }
+    }
+  }
+  if (currentVal !== "" || row.length > 0) {
+    row.push(currentVal);
+    result.push(row);
+  }
+
+  // Clean rows: trim whitespace, filter out empty rows
+  return result
+    .map((r) => r.map((cell) => cell.trim()))
+    .filter((r) => r.length > 0 && r.some((cell) => cell !== ""));
+}
+
+function UploadIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="17 8 12 3 7 8" />
+      <line x1="12" y1="3" x2="12" y2="15" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  );
+}
+
+interface CsvImportModalProps {
+  category: BadgeCategory;
+  onClose: () => void;
+  onImport: (drafts: Array<{ label: string; value: string; swatch?: string }>) => void;
+}
+
+function CsvImportModal({ category, onClose, onImport }: CsvImportModalProps) {
+  const isColor = category.kind === "color";
+  const [activeTab, setActiveTab] = useState<"file" | "paste">("file");
+  const [csvText, setCsvText] = useState("");
+  const [dragActive, setDragActive] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result;
+      if (typeof text === "string") {
+        setCsvText(text);
+        setActiveTab("paste"); // Switch tab to preview/edit pasted CSV text
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const parsedRows = useMemo(() => {
+    if (!csvText.trim()) return [];
+    return parseCSV(csvText);
+  }, [csvText]);
+
+  const hasHeaderDetected = useMemo(() => {
+    if (parsedRows.length === 0) return false;
+    const firstRow = parsedRows[0];
+    return firstRow.some((cell) => {
+      const c = cell.toLowerCase();
+      return ["label", "value", "swatch", "hex", "color", "colour", "motif", "shape", "name"].includes(c);
+    });
+  }, [parsedRows]);
+
+  const [hasHeader, setHasHeader] = useState(false);
+  const [prevCsvText, setPrevCsvText] = useState("");
+
+  if (csvText !== prevCsvText) {
+    setPrevCsvText(csvText);
+    setHasHeader(hasHeaderDetected);
+  }
+
+  const finalDrafts = useMemo(() => {
+    const rowsToProcess = hasHeader ? parsedRows.slice(1) : parsedRows;
+    return rowsToProcess
+      .map((row) => {
+        if (isColor) {
+          const label = row[0] || "";
+          let swatch = row[1] || "";
+          if (swatch && !swatch.startsWith("#")) {
+            if (/^[0-9a-f]{3,6}$/i.test(swatch)) {
+              swatch = "#" + swatch;
+            }
+          }
+          if (!/^#[0-9a-f]{3,6}$/i.test(swatch)) {
+            swatch = "#888888";
+          }
+          const value = row[2] || label;
+          return { label, value, swatch };
+        } else {
+          const label = row[0] || "";
+          const value = row[1] || label;
+          return { label, value };
+        }
+      })
+      .filter((d) => d.label.trim() !== "");
+  }, [parsedRows, hasHeader, isColor]);
+
+  const existingLabels = useMemo(() => {
+    return new Set(category.options.map((o) => o.label.toLowerCase().trim()));
+  }, [category.options]);
+
+  const existingValues = useMemo(() => {
+    return new Set(category.options.map((o) => o.value.toLowerCase().trim()));
+  }, [category.options]);
+
+  const { itemsToImport, duplicateCount } = useMemo(() => {
+    let dupCount = 0;
+    const toImport: Array<{ label: string; value: string; swatch?: string }> = [];
+    const seenLabels = new Set<string>();
+    const seenValues = new Set<string>();
+
+    for (const d of finalDrafts) {
+      const lLower = d.label.toLowerCase().trim();
+      const vLower = d.value.toLowerCase().trim();
+
+      const isDuplicate =
+        existingLabels.has(lLower) ||
+        existingValues.has(vLower) ||
+        seenLabels.has(lLower) ||
+        seenValues.has(vLower);
+
+      if (isDuplicate) {
+        dupCount++;
+      } else {
+        toImport.push(d);
+        seenLabels.add(lLower);
+        seenValues.add(vLower);
+      }
+    }
+    return { itemsToImport: toImport, duplicateCount: dupCount };
+  }, [finalDrafts, existingLabels, existingValues]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+      <div className="card w-full max-w-md p-5 flex flex-col gap-4 relative max-h-[90vh] overflow-y-auto scrollbar-thin rise-in">
+        <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: "var(--color-line-2)" }}>
+          <div>
+            <h3 className="font-display text-[16px] font-semibold tracking-tight">
+              Import to {category.label}
+            </h3>
+            <span className="block text-[10.5px] text-fg-dim font-mono mt-0.5">
+              CSV data mapping · {isColor ? "Label, Swatch Hex, Value" : "Label, Value"}
+            </span>
+          </div>
+          <button
+            type="button"
+            className="btn-icon hover:bg-surface-3 cursor-pointer"
+            onClick={onClose}
+            aria-label="Close modal"
+          >
+            <CloseIcon />
+          </button>
+        </div>
+
+        {/* Tab selection */}
+        <div className="flex border-b" style={{ borderColor: "var(--color-line)" }}>
+          <button
+            type="button"
+            className={`px-3 py-1.5 text-[12px] font-medium border-b-2 transition-colors cursor-pointer -mb-px ${
+              activeTab === "file"
+                ? "border-accent text-fg"
+                : "border-transparent text-fg-dim hover:text-fg-muted"
+            }`}
+            onClick={() => setActiveTab("file")}
+          >
+            Upload File
+          </button>
+          <button
+            type="button"
+            className={`px-3 py-1.5 text-[12px] font-medium border-b-2 transition-colors cursor-pointer -mb-px ${
+              activeTab === "paste"
+                ? "border-accent text-fg"
+                : "border-transparent text-fg-dim hover:text-fg-muted"
+            }`}
+            onClick={() => setActiveTab("paste")}
+          >
+            Paste CSV
+          </button>
+        </div>
+
+        {activeTab === "file" ? (
+          <div
+            onDragEnter={handleDrag}
+            onDragOver={handleDrag}
+            onDragLeave={handleDrag}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
+            className={`border border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
+              dragActive
+                ? "border-accent bg-accent/5 text-fg"
+                : "border-line-2 hover:border-line-3 text-fg-muted hover:text-fg"
+            }`}
+            style={{ backgroundColor: "var(--color-surface-2)" }}
+          >
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
+              accept=".csv,text/csv"
+              className="hidden"
+            />
+            <UploadIcon className="mx-auto mb-2 text-fg-dim" />
+            <span className="block text-[13px] font-medium">
+              Drag &amp; drop your CSV file here, or <span className="text-accent underline">browse</span>
+            </span>
+            <span className="block text-[10px] text-fg-dim mt-1">Supports .csv files</span>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <textarea
+              className="field-input font-mono text-[11px] min-h-[120px] resize-y"
+              placeholder={
+                isColor
+                  ? "royal gold,#d4af37,royal gold\nivory white,#f3efe3,ivory white"
+                  : "roaring tiger head,roaring tiger head\nsleeping cat,sleeping cat"
+              }
+              value={csvText}
+              onChange={(e) => setCsvText(e.target.value)}
+            />
+            <span className="text-[10px] text-fg-dim leading-normal">
+              Provide values separated by commas. One item per line.
+            </span>
+          </div>
+        )}
+
+        {parsedRows.length > 0 && (
+          <div className="flex flex-col gap-2.5">
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-2 text-[12px] text-fg-muted cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={hasHeader}
+                  onChange={(e) => setHasHeader(e.target.checked)}
+                  className="rounded-sm accent-accent"
+                />
+                <span>First row is header (skip it)</span>
+              </label>
+              {hasHeader && (
+                <span className="text-[10px] text-fg-dim font-mono truncate max-w-[200px]">
+                  Header: [{parsedRows[0]?.slice(0, 3).join(", ")}]
+                </span>
+              )}
+            </div>
+
+            <div className="border border-line rounded-md overflow-hidden bg-surface-2">
+              <div className="px-3 py-1.5 bg-surface-3/50 text-[10px] overline border-b border-line text-fg-dim">
+                Preview (First 5 Items)
+              </div>
+              <div className="max-h-[140px] overflow-auto scrollbar-thin">
+                <table className="w-full text-[11px] text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-line/45 text-fg-dim font-mono">
+                      <th className="px-3 py-1 font-medium">Label</th>
+                      <th className="px-3 py-1 font-medium">Value</th>
+                      {isColor && <th className="px-3 py-1 font-medium w-16">Color</th>}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-line/40">
+                    {finalDrafts.slice(0, 5).map((d, idx) => (
+                      <tr key={idx} className="text-fg-muted font-mono hover:bg-surface-3/20 transition-colors">
+                        <td className="px-3 py-1.5 truncate max-w-[120px]">{d.label}</td>
+                        <td className="px-3 py-1.5 truncate max-w-[150px]">{d.value}</td>
+                        {isColor && (
+                          <td className="px-3 py-1.5">
+                            <div className="flex items-center gap-1.5">
+                              <span
+                                className="w-3.5 h-3.5 rounded-sm border border-line"
+                                style={{ backgroundColor: d.swatch }}
+                              />
+                              <span className="text-[10px]">{d.swatch}</span>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {finalDrafts.length > 5 && (
+                <div className="text-[10px] text-fg-dim text-center py-1.5 border-t border-line/40 bg-surface-3/10">
+                  ... and {finalDrafts.length - 5} more items.
+                </div>
+              )}
+            </div>
+
+            <div className="text-[11px] flex flex-col gap-1 text-fg-muted">
+              <div>Found <span className="text-fg font-medium">{finalDrafts.length}</span> items in CSV.</div>
+              {duplicateCount > 0 && (
+                <div className="text-accent-strong">
+                  {duplicateCount} duplicate items will be automatically skipped.
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center justify-end gap-2.5 mt-2 border-t pt-3" style={{ borderColor: "var(--color-line)" }}>
+          <button
+            type="button"
+            className="btn btn-secondary px-4 cursor-pointer"
+            onClick={onClose}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary px-4 cursor-pointer"
+            disabled={itemsToImport.length === 0}
+            onClick={() => onImport(itemsToImport)}
+          >
+            Import {itemsToImport.length} Item{itemsToImport.length === 1 ? "" : "s"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
