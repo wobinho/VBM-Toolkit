@@ -21,3 +21,8 @@ export type PortraitLibrary = {
 };
 
 export type SelectionMap = Record<string, string | null>;
+
+// Per-category lock state. A locked category keeps its current selection when
+// the user randomizes or clears. Keyed by category id, so every current and
+// future feature category supports locking with no extra wiring.
+export type LockMap = Record<string, boolean>;

@@ -1,46 +1,41 @@
 "use client";
 
 import { useState } from "react";
-import { useLibrary, useSelection } from "@/lib/portrait-library/store";
-import { PromptBuilder } from "./PromptBuilder";
-import { LibraryBuilder } from "./LibraryBuilder";
+import { useBadgeStudio } from "@/lib/badge-builder/store";
+import { BadgeCompose } from "./BadgeCompose";
+import { BadgeLibrary } from "./BadgeLibrary";
 
 type Tab = "compose" | "library";
 
-export function PortraitStudio() {
-  const lib = useLibrary();
-  const sel = useSelection(lib.library.categories);
+export function BadgeStudio() {
+  const bb = useBadgeStudio();
   const [tab, setTab] = useState<Tab>("compose");
 
-  const totalOptions = lib.library.categories.reduce(
-    (s, c) => s + c.options.length,
-    0
-  );
+  const cats = bb.state.library.categories;
+  const count = (id: string) =>
+    cats.find((c) => c.id === id)?.options.length ?? 0;
 
   return (
     <>
       {/* — header — */}
       <section className="mx-auto max-w-[1180px] px-6 pt-14 pb-9">
-        <div className="overline mb-4">Tool 01 — Generative</div>
+        <div className="overline mb-4">Tool 02 — Visual</div>
         <h1 className="font-display text-[2.1rem] sm:text-[2.7rem] font-semibold tracking-[-0.03em] leading-[1.08] max-w-[24ch]">
-          Compose thousands of distinct portraits from one base prompt.
+          Build a club badge prompt from a shape, a motif and three colours.
         </h1>
         <p className="mt-4 text-[14px] text-fg-muted leading-relaxed max-w-[60ch]">
-          Curate a library of modular facial features, then dial in a look or
-          roll the dice for a one-off. Every selection swaps a slot in the base
-          template — ready to paste into Midjourney.
+          Every field draws from its own library of values — lock the ones you
+          like, randomize the rest, and copy the finished prompt straight into
+          your image model.
         </p>
 
         <div
           className="mt-7 flex flex-wrap items-center gap-x-7 gap-y-2 pt-5 border-t"
           style={{ borderColor: "var(--color-line)" }}
         >
-          <Stat label="Categories" value={lib.library.categories.length} />
-          <Stat label="Options" value={totalOptions} />
-          <Stat
-            label="Combinations"
-            value={formatCombos(lib.library.categories)}
-          />
+          <Stat label="Shapes" value={count("bcat-shape")} />
+          <Stat label="Motifs" value={count("bcat-motif")} />
+          <Stat label="Colours" value={count("bcat-primary")} />
           <Stat label="Storage" value="Local" />
         </div>
       </section>
@@ -67,53 +62,21 @@ export function PortraitStudio() {
             <span
               className="w-1.5 h-1.5 rounded-full"
               style={{
-                background: lib.hydrated
+                background: bb.hydrated
                   ? "var(--color-success)"
                   : "var(--color-fg-faint)",
               }}
             />
-            {lib.hydrated ? "Synced to local storage" : "Loading…"}
+            {bb.hydrated ? "Synced to local storage" : "Loading…"}
           </div>
         </div>
       </div>
 
-      <section
-        key={tab}
-        className="mx-auto max-w-[1180px] px-6 py-8 rise-in"
-      >
+      <section key={tab} className="mx-auto max-w-[1180px] px-6 py-8 rise-in">
         {tab === "compose" ? (
-          <PromptBuilder
-            library={lib.library}
-            selection={sel.selection}
-            locks={sel.locks}
-            onSelect={sel.select}
-            onToggleLock={sel.toggleLock}
-            onRandomize={sel.randomize}
-            onRandomizeOne={sel.randomizeOne}
-            onClear={sel.clear}
-          />
+          <BadgeCompose bb={bb} />
         ) : (
-          <LibraryBuilder
-            library={lib.library}
-            onSetBaseTemplate={lib.setBaseTemplate}
-            onAddCategory={lib.addCategory}
-            onUpdateCategory={lib.updateCategory}
-            onRemoveCategory={lib.removeCategory}
-            onMoveCategory={lib.moveCategory}
-            onAddOption={lib.addOption}
-            onUpdateOption={lib.updateOption}
-            onRemoveOption={lib.removeOption}
-            onReset={() => {
-              if (
-                confirm(
-                  "Reset the library to factory defaults? Your edits will be lost."
-                )
-              ) {
-                lib.resetLibrary();
-                sel.clear();
-              }
-            }}
-          />
+          <BadgeLibrary bb={bb} />
         )}
       </section>
     </>
@@ -160,15 +123,4 @@ function Stat({ label, value }: { label: string; value: string | number }) {
       </span>
     </div>
   );
-}
-
-function formatCombos(categories: { options: unknown[] }[]): string {
-  const total = categories.reduce(
-    (acc, c) => acc * Math.max(1, c.options.length),
-    1
-  );
-  if (total >= 1e9) return `${(total / 1e9).toFixed(1)}B+`;
-  if (total >= 1e6) return `${(total / 1e6).toFixed(1)}M+`;
-  if (total >= 1e3) return `${(total / 1e3).toFixed(1)}K+`;
-  return String(total);
 }

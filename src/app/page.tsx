@@ -1,192 +1,184 @@
 import Link from "next/link";
 import { ToolkitShell } from "@/components/shell/ToolkitShell";
-import { TOOLS } from "@/lib/tools";
-
-const STATUS_CHIP: Record<string, { label: string; classes: string }> = {
-  live: { label: "Live", classes: "chip-accent" },
-  drafting: { label: "Drafting", classes: "chip-info" },
-  queued: { label: "Queued", classes: "chip-muted" },
-};
+import { TOOLS, type ToolEntry } from "@/lib/tools";
 
 export default function HomePage() {
+  const live = TOOLS.filter((t) => t.href);
+  const upcoming = TOOLS.filter((t) => !t.href);
+
   return (
-    <ToolkitShell toolName="Tools" crumbs={[{ label: "Toolkit" }]}>
-      {/* HERO */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 dot-grid opacity-50 pointer-events-none" />
+    <ToolkitShell toolName="Index" crumbs={[{ label: "Toolkit" }]}>
+      <div className="mx-auto max-w-[1180px] px-6 pt-12 pb-24">
+        {/* — page header strip — */}
         <div
-          className="absolute -top-32 right-0 w-[600px] h-[600px] rounded-full pointer-events-none"
-          style={{
-            background:
-              "radial-gradient(circle, rgba(197,247,79,0.10), transparent 60%)",
-          }}
-        />
-        <div className="relative mx-auto max-w-[1400px] px-6 pt-20 pb-16">
-          <div className="flex items-center gap-2 mb-6">
-            <span className="chip chip-accent">
-              <span className="w-1.5 h-1.5 rounded-full bg-accent pulse-dot" />
-              v0.1 · Portrait Studio shipped
-            </span>
-            <span className="chip chip-muted">5 tools queued</span>
-          </div>
-
-          <h1 className="font-display text-5xl md:text-7xl font-semibold tracking-tight max-w-[18ch] leading-[0.95]">
-            A workshop of small,
-            <br />
-            <span className="text-fg-muted">sharp tools for </span>
-            <span className="text-accent">Volleyball Manager</span>
-            <span className="text-fg-muted">.</span>
-          </h1>
-
-          <p className="mt-6 text-lg text-fg-muted max-w-[60ch] leading-relaxed">
-            Each tool solves one problem well. Portrait prompts first — rosters,
-            schedules, kits and scouting reports queued behind. Everything stays
-            local; nothing leaves your browser unless you copy it.
-          </p>
-
-          <div className="mt-8 flex flex-wrap items-center gap-3">
-            <Link href="/tools/portrait-prompt" className="btn btn-primary">
-              Open Portrait Studio
-              <span className="text-base leading-none">→</span>
-            </Link>
-            <a href="#roster" className="btn btn-secondary">
-              Browse the roster
-            </a>
-          </div>
+          className="rise-in flex items-baseline justify-between pb-3 border-b"
+          style={{ borderColor: "var(--color-line-2)" }}
+        >
+          <div className="overline">The workshop</div>
+          <span className="font-mono text-[11px] text-fg-dim tab-fig">
+            {String(live.length).padStart(2, "0")} live ·{" "}
+            {String(TOOLS.length).padStart(2, "0")} total
+          </span>
         </div>
-      </section>
 
-      {/* TOOL ROSTER */}
-      <section id="roster" className="mx-auto max-w-[1400px] px-6 pt-8 pb-16">
-        <div className="flex items-end justify-between mb-6">
-          <div>
-            <div className="text-[11px] uppercase tracking-[0.18em] text-fg-dim mb-1">
-              Tool roster
+        {/* — live tools — */}
+        {live.length > 0 && (
+          <section className="mt-10">
+            <SectionLabel
+              label="Ready to use"
+              meta={`${String(live.length).padStart(2, "0")} tools`}
+              delay={60}
+            />
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              {live.map((tool, i) => (
+                <LiveCard key={tool.no} tool={tool} delay={120 + i * 70} />
+              ))}
             </div>
-            <h2 className="font-display text-2xl font-semibold tracking-tight">
-              Pick a tool to enter
-            </h2>
-          </div>
-          <div className="hidden md:flex items-center gap-2 text-xs text-fg-dim font-mono">
-            <span className="tab-fig text-fg">01</span> live ·
-            <span className="tab-fig text-fg-muted">05</span> queued
-          </div>
-        </div>
+          </section>
+        )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {TOOLS.map((tool) => {
-            const chip = STATUS_CHIP[tool.status];
-            const isDisabled = !tool.href;
-
-            const inner = (
-              <article
-                className={`card card-hover h-full p-5 flex flex-col gap-5 ${
-                  isDisabled ? "opacity-60 cursor-not-allowed" : "cursor-pointer"
-                }`}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="w-10 h-10 rounded-xl flex items-center justify-center font-mono text-sm font-semibold tab-fig"
-                      style={{
-                        background: "var(--color-surface-3)",
-                        border: "1px solid var(--color-line-2)",
-                      }}
-                    >
-                      {tool.no}
-                    </div>
-                    <div className="text-[11px] uppercase tracking-[0.16em] text-fg-dim">
-                      {tool.category}
-                    </div>
-                  </div>
-                  <span className={`chip ${chip.classes}`}>
-                    {tool.status === "live" && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-accent pulse-dot" />
-                    )}
-                    {chip.label}
-                  </span>
-                </div>
-
-                <div className="flex-1">
-                  <h3 className="font-display text-xl font-semibold tracking-tight">
-                    {tool.name}
-                  </h3>
-                  <p className="mt-2 text-sm text-fg-muted leading-relaxed">
-                    {tool.blurb}
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-mono text-fg-dim">/{tool.slug}</span>
-                  <span className="inline-flex items-center gap-1.5 text-fg-muted group-hover/card:text-accent transition-colors">
-                    {tool.href ? (
-                      <>
-                        Enter
-                        <span className="transition-transform">→</span>
-                      </>
-                    ) : (
-                      <span className="text-fg-faint">Coming soon</span>
-                    )}
-                  </span>
-                </div>
-              </article>
-            );
-
-            return tool.href ? (
-              <Link key={tool.no} href={tool.href} className="group/card block">
-                {inner}
-              </Link>
-            ) : (
-              <div key={tool.no} className="group/card" aria-disabled>
-                {inner}
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* PRINCIPLES */}
-      <section className="mx-auto max-w-[1400px] px-6 pb-20">
-        <div className="card p-8 md:p-10">
-          <div className="grid md:grid-cols-4 gap-8">
-            <div>
-              <div className="text-[11px] uppercase tracking-[0.18em] text-fg-dim mb-2">
-                Principles
-              </div>
-              <div className="font-display text-2xl font-semibold tracking-tight">
-                How the workshop runs
-              </div>
+        {/* — queued tools — */}
+        {upcoming.length > 0 && (
+          <section className="mt-14">
+            <SectionLabel
+              label="On the workbench"
+              meta={`${String(upcoming.length).padStart(2, "0")} planned`}
+              delay={260}
+            />
+            <div className="mt-5 grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
+              {upcoming.map((tool, i) => (
+                <QueuedCard key={tool.no} tool={tool} delay={320 + i * 55} />
+              ))}
             </div>
-            <Principle
-              n="01"
-              title="One problem each"
-              body="No omnibus tools. Every utility solves a single, well-bounded problem inside the VBM workflow."
-            />
-            <Principle
-              n="02"
-              title="Local-first data"
-              body="Libraries and selections live in your browser. Nothing leaves the workshop unless you explicitly copy or export."
-            />
-            <Principle
-              n="03"
-              title="Built for scale"
-              body="Thousands of players, hundreds of kits, a full season of fixtures — the tools are sized for the real workload."
-            />
-          </div>
-        </div>
-      </section>
+          </section>
+        )}
+      </div>
     </ToolkitShell>
   );
 }
 
-function Principle({ n, title, body }: { n: string; title: string; body: string }) {
+/* — section label: overline + meta count, hairline under — */
+function SectionLabel({
+  label,
+  meta,
+  delay,
+}: {
+  label: string;
+  meta: string;
+  delay: number;
+}) {
   return (
-    <div>
-      <div className="flex items-center gap-2 mb-2">
-        <span className="font-mono text-xs text-accent tab-fig">{n}</span>
-        <span className="text-sm font-medium">{title}</span>
-      </div>
-      <p className="text-sm text-fg-muted leading-relaxed">{body}</p>
+    <div
+      className="rise-in flex items-baseline justify-between border-b pb-2.5"
+      style={{ borderColor: "var(--color-line)", animationDelay: `${delay}ms` }}
+    >
+      <h2 className="overline">{label}</h2>
+      <span className="font-mono text-[11px] text-fg-faint tab-fig">{meta}</span>
     </div>
+  );
+}
+
+/* — live tool card: prominent, interactive — */
+function LiveCard({ tool, delay }: { tool: ToolEntry; delay: number }) {
+  return (
+    <Link
+      href={tool.href!}
+      className="card card-hover rise-in group relative flex flex-col overflow-hidden p-6 sm:p-7"
+      style={{ animationDelay: `${delay}ms` }}
+    >
+      {/* ghost index — quiet editorial texture */}
+      <span
+        className="pointer-events-none absolute -right-3 -top-7 select-none font-display text-[128px] font-bold leading-none text-fg transition-opacity duration-300 group-hover:opacity-[0.05]"
+        style={{ opacity: 0.025 }}
+        aria-hidden
+      >
+        {tool.no}
+      </span>
+
+      <div className="flex items-center justify-between">
+        <span className="font-mono text-[12px] text-fg-dim tab-fig">
+          {tool.no}
+        </span>
+        <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-accent-strong">
+          <span className="relative flex h-1.5 w-1.5">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-60" />
+            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-accent" />
+          </span>
+          Live
+        </span>
+      </div>
+
+      <h3 className="mt-5 font-display text-[22px] font-semibold tracking-[-0.02em] transition-colors group-hover:text-accent-strong">
+        {tool.name}
+      </h3>
+      <span className="mt-1.5 text-[11px] uppercase tracking-[0.14em] text-fg-dim">
+        {tool.category}
+      </span>
+
+      <p className="mt-3 text-[13.5px] leading-relaxed text-fg-muted">
+        {tool.blurb}
+      </p>
+
+      <div
+        className="mt-auto flex items-center gap-2 border-t pt-5 text-[13px] font-medium"
+        style={{ borderColor: "var(--color-line)" }}
+      >
+        <span className="text-fg transition-colors group-hover:text-accent-strong">
+          Open {tool.name}
+        </span>
+        <span className="text-fg-dim transition-all group-hover:translate-x-1 group-hover:text-accent-strong">
+          <Arrow />
+        </span>
+      </div>
+    </Link>
+  );
+}
+
+/* — queued tool card: compact, muted — */
+function QueuedCard({ tool, delay }: { tool: ToolEntry; delay: number }) {
+  return (
+    <div
+      className="card rise-in flex flex-col p-5"
+      style={{ animationDelay: `${delay}ms` }}
+      aria-disabled
+    >
+      <div className="flex items-center justify-between">
+        <span className="font-mono text-[11px] text-fg-faint tab-fig">
+          {tool.no}
+        </span>
+        <span className="text-[10.5px] font-medium uppercase tracking-[0.12em] text-fg-faint">
+          Queued
+        </span>
+      </div>
+
+      <h3 className="mt-3.5 font-display text-[15.5px] font-semibold tracking-tight text-fg-muted">
+        {tool.name}
+      </h3>
+      <span className="mt-1 text-[10.5px] uppercase tracking-[0.14em] text-fg-faint">
+        {tool.category}
+      </span>
+
+      <p className="mt-2.5 text-[12.5px] leading-relaxed text-fg-dim">
+        {tool.blurb}
+      </p>
+    </div>
+  );
+}
+
+function Arrow() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <line x1="5" y1="12" x2="19" y2="12" />
+      <polyline points="12 5 19 12 12 19" />
+    </svg>
   );
 }

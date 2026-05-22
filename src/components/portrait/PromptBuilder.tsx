@@ -2,12 +2,18 @@
 
 import { useMemo, useState } from "react";
 import { assemblePrompt } from "@/lib/portrait-library/store";
-import type { PortraitLibrary, SelectionMap } from "@/lib/portrait-library/types";
+import type {
+  LockMap,
+  PortraitLibrary,
+  SelectionMap,
+} from "@/lib/portrait-library/types";
 
 type Props = {
   library: PortraitLibrary;
   selection: SelectionMap;
+  locks: LockMap;
   onSelect: (categoryId: string, optionId: string | null) => void;
+  onToggleLock: (categoryId: string) => void;
   onRandomize: () => void;
   onRandomizeOne: (categoryId: string) => void;
   onClear: () => void;
@@ -16,7 +22,9 @@ type Props = {
 export function PromptBuilder({
   library,
   selection,
+  locks,
   onSelect,
+  onToggleLock,
   onRandomize,
   onRandomizeOne,
   onClear,
@@ -39,27 +47,45 @@ export function PromptBuilder({
 
   const filledCount = library.categories.filter((c) => selection[c.id]).length;
   const totalCount = library.categories.length;
-  const progress = totalCount === 0 ? 0 : Math.round((filledCount / totalCount) * 100);
+  const lockedCount = library.categories.filter((c) => locks[c.id]).length;
+  const progress =
+    totalCount === 0 ? 0 : Math.round((filledCount / totalCount) * 100);
 
   return (
     <div className="grid grid-cols-12 gap-6">
-      {/* LEFT — selectors */}
+      {/* — selectors — */}
       <div className="col-span-12 lg:col-span-8">
-        <div className="flex items-end justify-between mb-5">
+        <div
+          className="flex items-end justify-between pb-3 mb-5 border-b"
+          style={{ borderColor: "var(--color-line-2)" }}
+        >
           <div>
-            <div className="text-[11px] uppercase tracking-[0.18em] text-fg-dim mb-1">
-              Step 02 · Compose
-            </div>
-            <h2 className="font-display text-2xl font-semibold tracking-tight">
+            <div className="overline mb-1.5">Step 02 — Compose</div>
+            <h2 className="font-display text-[20px] font-semibold tracking-tight">
               Feature selection
             </h2>
           </div>
           <div className="flex items-center gap-2">
-            <button type="button" className="btn btn-ghost text-xs" onClick={onClear}>
+            {lockedCount > 0 && (
+              <span
+                className="tag tag-accent"
+                title={`${lockedCount} feature${
+                  lockedCount > 1 ? "s" : ""
+                } locked — kept unchanged on Randomize and Clear`}
+              >
+                <LockClosedIcon />
+                {lockedCount}
+              </span>
+            )}
+            <button type="button" className="btn btn-ghost" onClick={onClear}>
               Clear
             </button>
-            <button type="button" className="btn btn-secondary text-xs" onClick={onRandomize}>
-              <span className="text-sm leading-none">⤬</span>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={onRandomize}
+            >
+              <DiceIcon />
               Randomize
             </button>
           </div>
@@ -71,39 +97,61 @@ export function PromptBuilder({
             body="Switch to the Library tab and add a category to start composing prompts."
           />
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             {library.categories.map((cat, idx) => {
               const current = selection[cat.id] ?? "";
-              const filled = !!current;
+              const locked = !!locks[cat.id];
               return (
                 <div
                   key={cat.id}
-                  className={`card p-4 transition-colors ${
-                    filled ? "" : "opacity-95"
-                  }`}
+                  className="card p-3.5"
+                  style={
+                    locked
+                      ? { borderColor: "rgba(127, 168, 204, 0.32)" }
+                      : undefined
+                  }
                 >
-                  <div className="flex items-center justify-between mb-2.5 gap-2">
+                  <div className="flex items-center justify-between mb-2 gap-2">
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className="font-mono text-[10px] tab-fig text-fg-dim shrink-0">
+                      <span className="font-mono text-[10px] tab-fig text-fg-faint shrink-0">
                         {String(idx + 1).padStart(2, "0")}
                       </span>
-                      <span className="text-sm font-medium truncate">
+                      <span className="text-[13px] font-medium truncate">
                         {cat.label}
                       </span>
                       {cat.required && (
-                        <span className="text-accent text-xs">*</span>
+                        <span className="text-accent text-[13px] leading-none">
+                          *
+                        </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="font-mono text-[10px] text-fg-faint">
-                        {cat.slot}
-                      </span>
+                    <div className="flex items-center gap-0.5 shrink-0">
+                      <button
+                        type="button"
+                        className={`btn-icon ${locked ? "btn-icon-active" : ""}`}
+                        onClick={() => onToggleLock(cat.id)}
+                        title={
+                          locked
+                            ? `Unlock ${cat.label} — allow Randomize to change it`
+                            : `Lock ${cat.label} — keep it unchanged on Randomize`
+                        }
+                        aria-label={
+                          locked ? `Unlock ${cat.label}` : `Lock ${cat.label}`
+                        }
+                        aria-pressed={locked}
+                      >
+                        {locked ? <LockClosedIcon /> : <LockOpenIcon />}
+                      </button>
                       <button
                         type="button"
                         className="btn-icon"
                         onClick={() => onRandomizeOne(cat.id)}
-                        disabled={cat.options.length === 0}
-                        title={`Randomize ${cat.label}`}
+                        disabled={cat.options.length === 0 || locked}
+                        title={
+                          locked
+                            ? `${cat.label} is locked`
+                            : `Randomize ${cat.label}`
+                        }
                         aria-label={`Randomize ${cat.label}`}
                       >
                         <DiceIcon />
@@ -111,7 +159,7 @@ export function PromptBuilder({
                     </div>
                   </div>
                   <select
-                    className="field-input text-sm"
+                    className="field-input"
                     value={current}
                     onChange={(e) => onSelect(cat.id, e.target.value || null)}
                   >
@@ -128,7 +176,7 @@ export function PromptBuilder({
                     ))}
                   </select>
                   {cat.options.length === 0 && (
-                    <div className="mt-2 text-[11px] text-warn">
+                    <div className="mt-2 text-[11px] text-danger">
                       No options · add some in Library
                     </div>
                   )}
@@ -139,57 +187,56 @@ export function PromptBuilder({
         )}
       </div>
 
-      {/* RIGHT — assembled prompt */}
+      {/* — assembled prompt — */}
       <aside className="col-span-12 lg:col-span-4">
-        <div className="sticky top-[170px] space-y-3">
+        <div className="sticky top-[150px] space-y-3">
           <div className="card overflow-hidden">
-            {/* header */}
             <div
               className="flex items-center justify-between px-4 py-3 border-b"
               style={{ borderColor: "var(--color-line)" }}
             >
-              <div className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-accent pulse-dot" />
-                <span className="text-sm font-medium">Prompt</span>
-              </div>
-              <div className="text-[11px] font-mono text-fg-dim tab-fig">
+              <span className="text-[13px] font-medium">Assembled prompt</span>
+              <span className="font-mono text-[11px] text-fg-dim tab-fig">
                 {filledCount}/{totalCount}
-              </div>
+              </span>
             </div>
 
-            {/* progress bar */}
-            <div className="h-[3px] w-full surface-3">
+            <div
+              className="h-px w-full"
+              style={{ background: "var(--color-line)" }}
+            >
               <div
-                className="h-full bg-accent transition-all duration-300"
-                style={{ width: `${progress}%` }}
+                className="h-px transition-all duration-300"
+                style={{
+                  width: `${progress}%`,
+                  background: "var(--color-accent)",
+                }}
               />
             </div>
 
-            {/* body */}
             <div className="px-4 py-4 max-h-[420px] overflow-auto scrollbar-thin">
-              <pre className="font-mono text-[12.5px] leading-[1.65] whitespace-pre-wrap break-words text-fg">
+              <pre className="font-mono text-[12px] leading-[1.7] whitespace-pre-wrap break-words text-fg">
                 {prompt}
               </pre>
             </div>
 
-            {/* footer */}
             <div
               className="flex items-center justify-between gap-2 px-4 py-3 border-t"
               style={{ borderColor: "var(--color-line)" }}
             >
-              <span className="text-[11px] font-mono text-fg-dim tab-fig">
+              <span className="font-mono text-[11px] text-fg-dim tab-fig">
                 {prompt.length} chars
               </span>
               <button
                 type="button"
                 onClick={handleCopy}
-                className={`btn text-xs ${
+                className={`btn ${
                   copyState === "copied" ? "btn-secondary" : "btn-primary"
                 }`}
               >
                 {copyState === "copied" ? (
                   <>
-                    <span className="text-success">✓</span> Copied
+                    <CheckIcon /> Copied
                   </>
                 ) : (
                   <>
@@ -203,13 +250,10 @@ export function PromptBuilder({
 
           {missing.length > 0 && (
             <div
-              className="card p-3 text-xs flex gap-2"
-              style={{
-                borderColor: "rgba(248, 113, 113, 0.3)",
-                background: "rgba(248, 113, 113, 0.05)",
-              }}
+              className="card p-3 text-[12px] flex gap-2"
+              style={{ borderColor: "rgba(217, 138, 130, 0.3)" }}
             >
-              <span className="text-danger shrink-0">⚠</span>
+              <span className="text-danger shrink-0">!</span>
               <div>
                 <div className="font-medium text-danger mb-0.5">
                   Required slots empty
@@ -219,9 +263,10 @@ export function PromptBuilder({
             </div>
           )}
 
-          <p className="text-[11px] text-fg-dim leading-relaxed px-1">
-            Tip · use Randomize for rapid variants. Slots left unset are quietly
-            dropped from the final prompt.
+          <p className="text-[11.5px] text-fg-dim leading-relaxed">
+            Use Randomize for rapid variants. Lock a feature to keep it fixed
+            while everything else re-rolls. Unset slots are quietly dropped from
+            the final prompt.
           </p>
         </div>
       </aside>
@@ -232,8 +277,8 @@ export function PromptBuilder({
 function EmptyState({ title, body }: { title: string; body: string }) {
   return (
     <div className="card p-10 text-center">
-      <div className="font-display text-xl font-semibold mb-1">{title}</div>
-      <div className="text-sm text-fg-muted">{body}</div>
+      <div className="font-display text-[17px] font-semibold mb-1">{title}</div>
+      <div className="text-[13px] text-fg-muted">{body}</div>
     </div>
   );
 }
@@ -241,8 +286,8 @@ function EmptyState({ title, body }: { title: string; body: string }) {
 function CopyIcon() {
   return (
     <svg
-      width="14"
-      height="14"
+      width="13"
+      height="13"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -250,8 +295,61 @@ function CopyIcon() {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
+function LockClosedIcon() {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </svg>
+  );
+}
+
+function LockOpenIcon() {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+      <path d="M7 11V7a5 5 0 0 1 9.9-1" />
     </svg>
   );
 }

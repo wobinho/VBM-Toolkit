@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DEFAULT_LIBRARY } from "./default-library";
-import type { FeatureCategory, FeatureOption, PortraitLibrary, SelectionMap } from "./types";
+import type { FeatureCategory, FeatureOption, LockMap, PortraitLibrary, SelectionMap } from "./types";
 
 // Bumped to v2 — v1 stored option IDs generated with Math.random() at module
 // load, which broke selection→option mapping across reloads. v2 uses
 // deterministic IDs derived from category key + option label.
 const STORAGE_KEY = "vbm-toolkit:portrait-library:v2";
 const SELECTION_KEY = "vbm-toolkit:portrait-selection:v2";
+const LOCKS_KEY = "vbm-toolkit:portrait-locks:v2";
 
 const uid = (prefix = "id") => `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
 
@@ -150,10 +151,12 @@ export function useLibrary() {
 
 export function useSelection(categories: FeatureCategory[]) {
   const [selection, setSelection] = useState<SelectionMap>({});
+  const [locks, setLocks] = useState<LockMap>({});
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     setSelection(safeLoad<SelectionMap>(SELECTION_KEY, {}));
+    setLocks(safeLoad<LockMap>(LOCKS_KEY, {}));
     setHydrated(true);
   }, []);
 
@@ -166,6 +169,16 @@ export function useSelection(categories: FeatureCategory[]) {
     }
     safeSave(SELECTION_KEY, selection);
   }, [selection, hydrated]);
+
+  const firstLockSave = useRef(true);
+  useEffect(() => {
+    if (!hydrated) return;
+    if (firstLockSave.current) {
+      firstLockSave.current = false;
+      return;
+    }
+    safeSave(LOCKS_KEY, locks);
+  }, [locks, hydrated]);
 
   // Prune selections for categories or options that no longer exist.
   useEffect(() => {
@@ -189,32 +202,71 @@ export function useSelection(categories: FeatureCategory[]) {
     });
   }, [categories, hydrated]);
 
+  // Prune locks for categories that no longer exist.
+  useEffect(() => {
+    if (!hydrated) return;
+    setLocks((prev) => {
+      const next: LockMap = {};
+      for (const cat of categories) {
+        if (prev[cat.id]) next[cat.id] = true;
+      }
+      const changed = Object.keys(prev).length !== Object.keys(next).length;
+      return changed ? next : prev;
+    });
+  }, [categories, hydrated]);
+
   const select = useCallback((categoryId: string, optionId: string | null) => {
     setSelection((s) => ({ ...s, [categoryId]: optionId }));
   }, []);
 
-  const clear = useCallback(() => setSelection({}), []);
+  const toggleLock = useCallback((categoryId: string) => {
+    setLocks((l) => {
+      const next = { ...l };
+      if (next[categoryId]) delete next[categoryId];
+      else next[categoryId] = true;
+      return next;
+    });
+  }, []);
+
+  // Clear unlocked selections; locked categories keep their current value.
+  const clear = useCallback(() => {
+    setSelection((prev) => {
+      const next: SelectionMap = {};
+      for (const id of Object.keys(prev)) {
+        if (locks[id]) next[id] = prev[id];
+      }
+      return next;
+    });
+  }, [locks]);
 
   const randomize = useCallback(() => {
-    const next: SelectionMap = {};
-    for (const cat of categories) {
-      if (cat.options.length === 0) {
-        next[cat.id] = null;
-        continue;
+    setSelection((prev) => {
+      const next: SelectionMap = {};
+      for (const cat of categories) {
+        // Locked categories are frozen — keep whatever is currently selected.
+        if (locks[cat.id]) {
+          next[cat.id] = prev[cat.id] ?? null;
+          continue;
+        }
+        if (cat.options.length === 0) {
+          next[cat.id] = null;
+          continue;
+        }
+        // If "allowNone" and not required, there is a chance of skipping.
+        if (cat.allowNone && !cat.required && Math.random() < 0.15) {
+          next[cat.id] = null;
+          continue;
+        }
+        const pick = cat.options[Math.floor(Math.random() * cat.options.length)];
+        next[cat.id] = pick.id;
       }
-      // If "allowNone" and not required, there is a chance of skipping.
-      if (cat.allowNone && !cat.required && Math.random() < 0.15) {
-        next[cat.id] = null;
-        continue;
-      }
-      const pick = cat.options[Math.floor(Math.random() * cat.options.length)];
-      next[cat.id] = pick.id;
-    }
-    setSelection(next);
-  }, [categories]);
+      return next;
+    });
+  }, [categories, locks]);
 
   const randomizeOne = useCallback(
     (categoryId: string) => {
+      if (locks[categoryId]) return;
       const cat = categories.find((c) => c.id === categoryId);
       if (!cat || cat.options.length === 0) return;
       setSelection((prev) => {
@@ -229,10 +281,10 @@ export function useSelection(categories: FeatureCategory[]) {
         return { ...prev, [categoryId]: pick.id };
       });
     },
-    [categories]
+    [categories, locks]
   );
 
-  return { selection, hydrated, select, clear, randomize, randomizeOne };
+  return { selection, locks, hydrated, select, toggleLock, clear, randomize, randomizeOne };
 }
 
 export function assemblePrompt(

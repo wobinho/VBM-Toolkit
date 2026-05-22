@@ -4,22 +4,22 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "VBM Toolkit — Volleyball Manager Utilities",
   description:
-    "A workshop of tools for the Volleyball Manager project: portrait prompt assembly, library curation, and more on the way.",
+    "A quiet workshop of tools for the Volleyball Manager project: portrait prompt assembly and club badge composition.",
 };
 
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en">
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@300;400;500;600&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300..800&family=Hanken+Grotesk:wght@400..700&family=JetBrains+Mono:wght@400..600&display=swap"
           rel="stylesheet"
         />
-        <meta name="theme-color" content="#0a0a0c" />
+        <meta name="theme-color" content="#0c0c0d" />
       </head>
       <body className="min-h-screen antialiased">{children}</body>
     </html>

@@ -1,7 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { FeatureCategory, PortraitLibrary } from "@/lib/portrait-library/types";
+import type {
+  FeatureCategory,
+  PortraitLibrary,
+} from "@/lib/portrait-library/types";
 
 type Props = {
   library: PortraitLibrary;
@@ -56,25 +59,26 @@ export function LibraryBuilder(props: Props) {
 
   return (
     <div className="grid grid-cols-12 gap-6">
-      {/* LEFT — categories list + base template */}
+      {/* — categories list + base template — */}
       <div className="col-span-12 lg:col-span-5 space-y-6">
         <section>
-          <div className="flex items-end justify-between mb-4">
+          <div
+            className="flex items-end justify-between pb-3 mb-4 border-b"
+            style={{ borderColor: "var(--color-line-2)" }}
+          >
             <div>
-              <div className="text-[11px] uppercase tracking-[0.18em] text-fg-dim mb-1">
-                Step 01 · Library
-              </div>
-              <h2 className="font-display text-2xl font-semibold tracking-tight">
+              <div className="overline mb-1.5">Step 01 — Library</div>
+              <h2 className="font-display text-[20px] font-semibold tracking-tight">
                 Categories
               </h2>
             </div>
             <button
               type="button"
-              className="btn btn-ghost text-xs"
+              className="btn btn-ghost"
               onClick={onReset}
               title="Reset library to factory defaults"
             >
-              <span className="text-sm leading-none">↺</span>
+              <ResetIcon />
               Reset
             </button>
           </div>
@@ -96,23 +100,23 @@ export function LibraryBuilder(props: Props) {
           <AddCategoryForm onAdd={onAddCategory} />
         </section>
 
-        <section className="card p-5">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-display text-lg font-semibold tracking-tight">
+        <section className="card p-4">
+          <div className="flex items-center justify-between mb-2.5">
+            <h3 className="font-display text-[15px] font-semibold tracking-tight">
               Base template
             </h3>
-            <span className="font-mono text-[10px] text-fg-dim">
+            <span className="font-mono text-[10px] text-fg-dim tab-fig">
               {library.basePromptTemplate.length} chars
             </span>
           </div>
-          <p className="text-xs text-fg-muted mb-3 leading-relaxed">
-            Slot tokens in square brackets get replaced with the value of the
+          <p className="text-[12px] text-fg-muted mb-3 leading-relaxed">
+            Slot tokens in square brackets are replaced with the value of the
             selected option — e.g.{" "}
-            <code className="font-mono text-accent">[AGE]</code> or{" "}
-            <code className="font-mono text-accent">[HAIR_COLOR]</code>.
+            <code className="font-mono text-accent-strong">[AGE]</code> or{" "}
+            <code className="font-mono text-accent-strong">[HAIR_COLOR]</code>.
           </p>
           <textarea
-            className="field-input font-mono text-[12.5px] leading-[1.65] min-h-[160px] resize-y"
+            className="field-input font-mono text-[12px] leading-[1.7] min-h-[160px] resize-y"
             value={library.basePromptTemplate}
             onChange={(e) => onSetBaseTemplate(e.target.value)}
           />
@@ -122,7 +126,7 @@ export function LibraryBuilder(props: Props) {
         </section>
       </div>
 
-      {/* RIGHT — category detail */}
+      {/* — category detail — */}
       <div className="col-span-12 lg:col-span-7">
         {active ? (
           <CategoryEditor
@@ -137,10 +141,10 @@ export function LibraryBuilder(props: Props) {
           />
         ) : (
           <div className="card p-12 text-center">
-            <div className="font-display text-xl font-semibold">
+            <div className="font-display text-[17px] font-semibold">
               No category selected
             </div>
-            <div className="text-sm text-fg-muted mt-1">
+            <div className="text-[13px] text-fg-muted mt-1">
               Pick one on the left, or add a new category to begin.
             </div>
           </div>
@@ -165,39 +169,38 @@ function CategoryList({
 }) {
   if (categories.length === 0) {
     return (
-      <div className="card p-6 text-center text-sm text-fg-muted">
+      <div className="card p-6 text-center text-[13px] text-fg-muted">
         No categories yet. Add one below to get started.
       </div>
     );
   }
 
   return (
-    <ul
-      className="card divide-y max-h-[420px] overflow-auto scrollbar-thin"
-      style={{ borderColor: "var(--color-line)" }}
-    >
+    <ul className="card overflow-hidden max-h-[420px] overflow-y-auto scrollbar-thin">
       {categories.map((c, i) => {
         const isActive = c.id === activeId;
         return (
           <li
             key={c.id}
             className={`group flex items-center justify-between px-3 py-2.5 cursor-pointer transition-colors ${
-              isActive ? "bg-surface-3" : "hover:bg-surface-2"
-            }`}
+              i > 0 ? "border-t" : ""
+            } ${isActive ? "bg-surface-2" : "hover:bg-surface-2"}`}
             style={{ borderColor: "var(--color-line)" }}
             onClick={() => onSelect(c.id)}
           >
             <div className="flex items-center gap-3 min-w-0 flex-1">
               <span
-                className={`font-mono text-[10px] tab-fig w-6 text-right ${
-                  isActive ? "text-accent" : "text-fg-dim"
+                className={`font-mono text-[10px] tab-fig w-5 text-right ${
+                  isActive ? "text-accent-strong" : "text-fg-faint"
                 }`}
               >
                 {String(i + 1).padStart(2, "0")}
               </span>
               <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium truncate">{c.label}</div>
-                <div className="font-mono text-[10px] text-fg-dim truncate">
+                <div className="text-[13px] font-medium truncate">
+                  {c.label}
+                </div>
+                <div className="font-mono text-[10px] text-fg-dim truncate mt-0.5">
                   {c.slot} · {c.options.length} option
                   {c.options.length === 1 ? "" : "s"}
                   {c.required ? " · required" : ""}
@@ -214,7 +217,7 @@ function CategoryList({
                 onClick={() => onMove(c.id, -1)}
                 aria-label="Move up"
               >
-                <ArrowIcon up />
+                <ChevronIcon up />
               </button>
               <button
                 type="button"
@@ -222,7 +225,7 @@ function CategoryList({
                 onClick={() => onMove(c.id, 1)}
                 aria-label="Move down"
               >
-                <ArrowIcon />
+                <ChevronIcon />
               </button>
               <button
                 type="button"
@@ -266,7 +269,9 @@ function AddCategoryForm({
     const trimmedLabel = label.trim();
     if (!trimmedLabel) return;
 
-    const autoSlot = `[${trimmedLabel.toUpperCase().replace(/[^A-Z0-9]+/g, "_")}]`;
+    const autoSlot = `[${trimmedLabel
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, "_")}]`;
     const finalSlot = slot.trim() || autoSlot;
     const key = finalSlot.replace(/[[\]]/g, "");
 
@@ -289,20 +294,18 @@ function AddCategoryForm({
       <button
         type="button"
         onClick={() => setExpanded(true)}
-        className="mt-3 w-full card p-3 text-sm text-fg-muted hover:text-fg hover:border-line-3 transition-colors flex items-center justify-center gap-2"
+        className="mt-2.5 w-full card card-hover p-2.5 text-[13px] text-fg-muted hover:text-fg flex items-center justify-center gap-2"
       >
-        <span className="text-base leading-none">+</span>
+        <PlusIcon />
         Add category
       </button>
     );
   }
 
   return (
-    <form onSubmit={submit} className="mt-3 card p-4 space-y-3">
+    <form onSubmit={submit} className="mt-2.5 card p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <div className="text-[11px] uppercase tracking-[0.16em] text-fg-dim font-medium">
-          New category
-        </div>
+        <div className="overline">New category</div>
         <button
           type="button"
           className="btn-icon"
@@ -321,14 +324,14 @@ function AddCategoryForm({
           autoFocus
         />
         <input
-          className="field-input col-span-5 font-mono text-xs"
+          className="field-input col-span-5 font-mono text-[11px]"
           placeholder="[SLOT]"
           value={slot}
           onChange={(e) => setSlot(e.target.value)}
         />
       </div>
       <div className="flex items-center justify-between gap-2">
-        <label className="flex items-center gap-2 text-xs text-fg-muted cursor-pointer">
+        <label className="flex items-center gap-2 text-[12px] text-fg-muted cursor-pointer">
           <input
             type="checkbox"
             checked={required}
@@ -336,15 +339,15 @@ function AddCategoryForm({
           />
           Required slot
         </label>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <button
             type="button"
-            className="btn btn-ghost text-xs"
+            className="btn btn-ghost"
             onClick={() => setExpanded(false)}
           >
             Cancel
           </button>
-          <button type="submit" className="btn btn-primary text-xs">
+          <button type="submit" className="btn btn-primary">
             Add category
           </button>
         </div>
@@ -363,18 +366,18 @@ function CategoryEditor({
   category: FeatureCategory;
   onUpdate: (patch: Partial<Omit<FeatureCategory, "id" | "options">>) => void;
   onAddOption: (label: string, value: string) => void;
-  onUpdateOption: (optId: string, patch: { label?: string; value?: string }) => void;
+  onUpdateOption: (
+    optId: string,
+    patch: { label?: string; value?: string }
+  ) => void;
   onRemoveOption: (optId: string) => void;
 }) {
   return (
     <div className="card overflow-hidden">
       {/* header */}
       <div
-        className="px-5 py-4 border-b"
-        style={{
-          borderColor: "var(--color-line)",
-          background: "var(--color-surface-2)",
-        }}
+        className="px-5 py-4 border-b bg-surface-2"
+        style={{ borderColor: "var(--color-line)" }}
       >
         <div className="grid grid-cols-12 gap-3 items-end">
           <div className="col-span-12 sm:col-span-5">
@@ -388,7 +391,7 @@ function CategoryEditor({
           <div className="col-span-7 sm:col-span-4">
             <label className="field-label">Slot token</label>
             <input
-              className="field-input font-mono text-xs"
+              className="field-input font-mono text-[11px]"
               value={category.slot}
               onChange={(e) =>
                 onUpdate({
@@ -398,18 +401,21 @@ function CategoryEditor({
               }
             />
           </div>
-          <div className="col-span-5 sm:col-span-3 flex flex-col gap-2 pt-1">
-            <label className="flex items-center gap-2 text-xs text-fg-muted cursor-pointer">
+          <div className="col-span-5 sm:col-span-3 flex flex-col gap-2 pb-1">
+            <label className="flex items-center gap-2 text-[12px] text-fg-muted cursor-pointer">
               <input
                 type="checkbox"
                 checked={category.required}
                 onChange={(e) =>
-                  onUpdate({ required: e.target.checked, allowNone: !e.target.checked })
+                  onUpdate({
+                    required: e.target.checked,
+                    allowNone: !e.target.checked,
+                  })
                 }
               />
               Required
             </label>
-            <label className="flex items-center gap-2 text-xs text-fg-muted cursor-pointer">
+            <label className="flex items-center gap-2 text-[12px] text-fg-muted cursor-pointer">
               <input
                 type="checkbox"
                 checked={category.allowNone}
@@ -424,36 +430,36 @@ function CategoryEditor({
       {/* options */}
       <div className="p-5">
         <div className="flex items-center justify-between mb-3">
-          <h4 className="font-display text-lg font-semibold tracking-tight">
+          <h4 className="font-display text-[15px] font-semibold tracking-tight">
             Options
-            <span className="text-fg-dim font-mono text-sm tab-fig ml-2">
+            <span className="text-fg-dim font-mono text-[12px] tab-fig ml-2">
               {category.options.length}
             </span>
           </h4>
-          <div className="hidden sm:flex items-center gap-6 text-[10px] uppercase tracking-[0.16em] text-fg-dim">
+          <div className="hidden sm:flex items-center gap-6 overline">
             <span className="w-[200px]">Label</span>
             <span className="flex-1">Prompt fragment</span>
           </div>
         </div>
 
-        <ul className="space-y-1.5 max-h-[420px] overflow-auto scrollbar-thin pr-1 -mr-1">
+        <ul className="space-y-1 max-h-[420px] overflow-auto scrollbar-thin pr-1 -mr-1">
           {category.options.map((opt, i) => (
             <li
               key={opt.id}
-              className="grid grid-cols-12 gap-2 items-center group p-1.5 rounded-lg hover:bg-surface-2 transition-colors"
+              className="grid grid-cols-12 gap-2 items-center group p-1.5 rounded-md hover:bg-surface-2 transition-colors"
             >
-              <span className="col-span-1 font-mono text-[10px] tab-fig text-fg-dim text-center">
+              <span className="col-span-1 font-mono text-[10px] tab-fig text-fg-faint text-center">
                 {String(i + 1).padStart(2, "0")}
               </span>
               <input
-                className="field-input col-span-4 py-1.5 text-sm"
+                className="field-input col-span-4 py-1.5"
                 value={opt.label}
                 onChange={(e) =>
                   onUpdateOption(opt.id, { label: e.target.value })
                 }
               />
               <input
-                className="field-input col-span-6 py-1.5 font-mono text-xs"
+                className="field-input col-span-6 py-1.5 font-mono text-[11px]"
                 value={opt.value}
                 onChange={(e) =>
                   onUpdateOption(opt.id, { value: e.target.value })
@@ -473,7 +479,7 @@ function CategoryEditor({
             </li>
           ))}
           {category.options.length === 0 && (
-            <li className="card p-6 text-center text-sm text-fg-muted">
+            <li className="card p-6 text-center text-[13px] text-fg-muted">
               No options yet. Add one below.
             </li>
           )}
@@ -506,26 +512,27 @@ function AddOptionForm({
   return (
     <form
       onSubmit={submit}
-      className="mt-4 surface-2 rounded-xl p-3 grid grid-cols-12 gap-2 items-center"
+      className="mt-4 bg-surface-2 rounded-lg p-3 grid grid-cols-12 gap-2 items-center"
       style={{ border: "1px solid var(--color-line)" }}
     >
       <input
-        className="field-input col-span-4 text-sm"
+        className="field-input col-span-4"
         placeholder="Option label"
         value={label}
         onChange={(e) => setLabel(e.target.value)}
       />
       <input
-        className="field-input col-span-6 font-mono text-xs"
+        className="field-input col-span-6 font-mono text-[11px]"
         placeholder="Prompt fragment (replaces slot)"
         value={value}
         onChange={(e) => setValue(e.target.value)}
       />
       <button
         type="submit"
-        className="btn btn-primary text-xs col-span-2 justify-center"
+        className="btn btn-primary col-span-2 justify-center"
       >
-        + Add
+        <PlusIcon />
+        Add
       </button>
     </form>
   );
@@ -533,7 +540,7 @@ function AddOptionForm({
 
 /* — icons — */
 
-function ArrowIcon({ up = false }: { up?: boolean }) {
+function ChevronIcon({ up = false }: { up?: boolean }) {
   return (
     <svg
       width="12"
@@ -585,6 +592,42 @@ function CloseIcon() {
     >
       <line x1="18" y1="6" x2="6" y2="18" />
       <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  );
+}
+
+function ResetIcon() {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+      <path d="M3 3v5h5" />
     </svg>
   );
 }

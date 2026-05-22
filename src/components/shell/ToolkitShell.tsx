@@ -5,7 +5,6 @@ type Crumb = { label: string; href?: string };
 
 type ShellProps = {
   children: ReactNode;
-  toolNumber?: string;
   toolName?: string;
   crumbs?: Crumb[];
   rightSlot?: ReactNode;
@@ -19,91 +18,91 @@ export function ToolkitShell({
 }: ShellProps) {
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Top nav */}
-      <header className="sticky top-0 z-30">
-        <div className="glass border-b" style={{ borderColor: "var(--color-line)" }}>
-          <div className="mx-auto max-w-[1400px] px-6 h-14 flex items-center justify-between gap-4">
-            <Link href="/" className="flex items-center gap-3 group">
-              <div className="relative w-7 h-7 rounded-lg surface-3 border border-line-2 flex items-center justify-center overflow-hidden">
-                <span
-                  className="absolute inset-0"
-                  style={{
-                    background:
-                      "radial-gradient(circle at 30% 30%, rgba(197,247,79,0.6), transparent 60%)",
-                  }}
-                />
-                <span className="relative font-mono text-[11px] font-semibold text-fg">V</span>
-              </div>
-              <div className="flex items-baseline gap-1.5">
-                <span className="font-display text-sm font-semibold tracking-tight">
-                  VBM Toolkit
-                </span>
-                <span className="font-mono text-[10px] text-fg-dim">v0.1</span>
-              </div>
-            </Link>
+      {/* — top bar — */}
+      <header
+        className="sticky top-0 z-30 border-b"
+        style={{
+          borderColor: "var(--color-line)",
+          background: "rgba(12,12,13,0.86)",
+          backdropFilter: "blur(10px)",
+        }}
+      >
+        <div className="mx-auto max-w-[1180px] px-6 h-14 flex items-center justify-between gap-6">
+          <Link href="/" className="flex items-center gap-2.5 group">
+            <span
+              className="w-6 h-6 grid place-items-center rounded-[5px] font-mono text-[11px] font-semibold"
+              style={{
+                border: "1px solid var(--color-line-3)",
+                color: "var(--color-fg)",
+              }}
+            >
+              V
+            </span>
+            <span className="font-display text-[15px] font-semibold tracking-tight">
+              VBM Toolkit
+            </span>
+            <span className="font-mono text-[10px] text-fg-faint mt-0.5">
+              v0.2
+            </span>
+          </Link>
 
-            <nav className="flex items-center gap-1">
-              <NavLink href="/" label="Tools" />
-              <NavLink href="/tools/portrait-prompt" label="Portraits" />
-              <span className="btn btn-ghost text-xs opacity-50 cursor-not-allowed">
-                Docs
-              </span>
-              <div className="w-px h-5 bg-line-2 mx-2" />
-              <a
-                href="https://github.com"
-                className="btn btn-ghost text-xs"
-                target="_blank"
-                rel="noreferrer"
-              >
-                GitHub
-              </a>
-            </nav>
-          </div>
+          <nav className="flex items-center gap-0.5">
+            <NavLink href="/" label="Tools" />
+            <NavLink href="/tools/portrait-prompt" label="Portraits" />
+            <NavLink href="/tools/club-badge" label="Badges" />
+            <span className="w-px h-4 mx-2" style={{ background: "var(--color-line-2)" }} />
+            <a
+              href="https://github.com"
+              className="btn btn-ghost text-[12px]"
+              target="_blank"
+              rel="noreferrer"
+            >
+              GitHub
+            </a>
+          </nav>
         </div>
 
-        {/* breadcrumb strip */}
-        {(crumbs.length > 1 || toolName) && (
-          <div
-            className="border-b"
-            style={{ borderColor: "var(--color-line)", background: "var(--color-bg)" }}
-          >
-            <div className="mx-auto max-w-[1400px] px-6 h-10 flex items-center justify-between text-[12px]">
-              <div className="flex items-center gap-2 font-mono text-fg-dim">
-                {crumbs.map((c, i) => (
-                  <span key={i} className="flex items-center gap-2">
-                    {c.href ? (
-                      <Link href={c.href} className="hover:text-fg transition-colors">
-                        {c.label}
-                      </Link>
-                    ) : (
-                      <span>{c.label}</span>
-                    )}
-                    <span className="text-fg-faint">/</span>
-                  </span>
-                ))}
-                <span className="text-fg">{toolName}</span>
-              </div>
-              <div className="hidden md:flex items-center gap-2 font-mono text-[11px] text-fg-dim">
+        {/* — breadcrumb strip — */}
+        <div className="border-t" style={{ borderColor: "var(--color-line)" }}>
+          <div className="mx-auto max-w-[1180px] px-6 h-9 flex items-center justify-between text-[11.5px] font-mono">
+            <div className="flex items-center gap-1.5 text-fg-dim">
+              {crumbs.map((c, i) => (
+                <span key={i} className="flex items-center gap-1.5">
+                  {c.href ? (
+                    <Link
+                      href={c.href}
+                      className="hover:text-fg transition-colors"
+                    >
+                      {c.label}
+                    </Link>
+                  ) : (
+                    <span>{c.label}</span>
+                  )}
+                  <span className="text-fg-faint">/</span>
+                </span>
+              ))}
+              <span className="text-fg">{toolName}</span>
+            </div>
+            {rightSlot && (
+              <div className="hidden md:block text-[11px] text-fg-dim">
                 {rightSlot}
               </div>
-            </div>
+            )}
           </div>
-        )}
+        </div>
       </header>
 
       <main className="flex-1">{children}</main>
 
-      <footer className="mt-20 border-t" style={{ borderColor: "var(--color-line)" }}>
-        <div className="mx-auto max-w-[1400px] px-6 py-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <span className="w-1.5 h-1.5 rounded-full bg-accent pulse-dot" />
-            <span className="text-xs text-fg-muted">
-              VBM Toolkit — a side workshop for the Volleyball Manager project
-            </span>
-          </div>
-          <div className="font-mono text-[11px] text-fg-dim">
-            Local-first · Built for scale · © 2026
-          </div>
+      {/* — footer — */}
+      <footer className="mt-24 border-t" style={{ borderColor: "var(--color-line)" }}>
+        <div className="mx-auto max-w-[1180px] px-6 py-7 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-[11.5px]">
+          <span className="text-fg-dim">
+            VBM Toolkit — a side workshop for the Volleyball Manager project.
+          </span>
+          <span className="font-mono text-fg-faint">
+            Local-first · © 2026
+          </span>
         </div>
       </footer>
     </div>
@@ -112,7 +111,7 @@ export function ToolkitShell({
 
 function NavLink({ href, label }: { href: string; label: string }) {
   return (
-    <Link href={href} className="btn btn-ghost text-xs">
+    <Link href={href} className="btn btn-ghost text-[12px]">
       {label}
     </Link>
   );

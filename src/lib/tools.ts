@@ -15,7 +15,7 @@ export const TOOLS: ToolEntry[] = [
     no: "01",
     slug: "portrait-prompt",
     href: "/tools/portrait-prompt",
-    name: "Portrait Prompt Studio",
+    name: "Portrait Studio",
     blurb:
       "Modular Midjourney prompt assembler — pair a curated feature library with a base template to spin off thousands of distinct portraits.",
     status: "live",
@@ -23,6 +23,16 @@ export const TOOLS: ToolEntry[] = [
   },
   {
     no: "02",
+    slug: "club-badge",
+    href: "/tools/club-badge",
+    name: "Badge Builder",
+    blurb:
+      "Slot-based badge prompt builder — pick a shape, a central motif and a three-colour palette, with a lockable library behind every field.",
+    status: "live",
+    category: "Visual",
+  },
+  {
+    no: "03",
     slug: "roster-namer",
     href: null,
     name: "Roster Name Forge",
@@ -32,7 +42,7 @@ export const TOOLS: ToolEntry[] = [
     category: "Database",
   },
   {
-    no: "03",
+    no: "04",
     slug: "schedule-architect",
     href: null,
     name: "Schedule Architect",
@@ -42,7 +52,7 @@ export const TOOLS: ToolEntry[] = [
     category: "League Ops",
   },
   {
-    no: "04",
+    no: "05",
     slug: "attribute-balancer",
     href: null,
     name: "Attribute Balancer",
@@ -52,7 +62,7 @@ export const TOOLS: ToolEntry[] = [
     category: "Balance",
   },
   {
-    no: "05",
+    no: "06",
     slug: "kit-designer",
     href: null,
     name: "Kit Designer",
@@ -62,7 +72,7 @@ export const TOOLS: ToolEntry[] = [
     category: "Visual",
   },
   {
-    no: "06",
+    no: "07",
     slug: "scout-report",
     href: null,
     name: "Scout Report Composer",
