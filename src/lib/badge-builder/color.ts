@@ -120,6 +120,37 @@ export function rgbToHsl({ r, g, b }: RGB): HSL {
 
 export const hexToHsl = (hex: string): HSL => rgbToHsl(hexToRgb(hex));
 
+function hslToRgb({ h, s, l }: HSL): RGB {
+  const sn = s / 100;
+  const ln = l / 100;
+  const c = (1 - Math.abs(2 * ln - 1)) * sn;
+  const hh = ((((h % 360) + 360) % 360) / 60);
+  const x = c * (1 - Math.abs((hh % 2) - 1));
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  if (hh < 1) [r, g, b] = [c, x, 0];
+  else if (hh < 2) [r, g, b] = [x, c, 0];
+  else if (hh < 3) [r, g, b] = [0, c, x];
+  else if (hh < 4) [r, g, b] = [0, x, c];
+  else if (hh < 5) [r, g, b] = [x, 0, c];
+  else [r, g, b] = [c, 0, x];
+  const m = ln - c / 2;
+  return { r: (r + m) * 255, g: (g + m) * 255, b: (b + m) * 255 };
+}
+
+export function adjustLightness(hex: string, deltaL: number): string {
+  const hsl = hexToHsl(hex);
+  return rgbToHex(
+    hslToRgb({ ...hsl, l: Math.max(6, Math.min(94, hsl.l + deltaL)) })
+  );
+}
+
+export function adjustHue(hex: string, deltaH: number): string {
+  const hsl = hexToHsl(hex);
+  return rgbToHex(hslToRgb({ ...hsl, h: (hsl.h + deltaH + 360) % 360 }));
+}
+
 /* -------------------------------------------------------------------------- */
 /*  WCAG contrast                                                             */
 /* -------------------------------------------------------------------------- */
@@ -404,6 +435,17 @@ export type PairReport = {
   grade: ContrastGrade;
 };
 
+export type PaletteColorRole = "primary" | "secondary" | "accent";
+
+export type PaletteFixSuggestion = {
+  id: string;
+  role: PaletteColorRole;
+  label: string;
+  reason: string;
+  currentHex: string;
+  suggestedHex: string;
+};
+
 export type PaletteReport = {
   classification: PaletteClass;
   /** Contrast for the three colour pairs. */
@@ -415,7 +457,141 @@ export type PaletteReport = {
   verdictNote: string;
   /** Specific, actionable notes — what's good or what to fix. */
   tips: string[];
+  /** Concrete one-click fixes for weak areas. */
+  fixes: PaletteFixSuggestion[];
 };
+
+type PaletteInput = {
+  primary: string;
+  secondary: string;
+  accent: string;
+};
+
+function pushFix(
+  fixes: PaletteFixSuggestion[],
+  seen: Set<string>,
+  fix: Omit<PaletteFixSuggestion, "id">
+) {
+  const key = `${fix.role}:${fix.suggestedHex}`;
+  if (seen.has(key) || fix.suggestedHex === fix.currentHex) return;
+  seen.add(key);
+  fixes.push({ ...fix, id: `fix-${fixes.length + 1}` });
+}
+
+/** Suggest specific hex adjustments to improve harmony, contrast, and spread. */
+export function suggestPaletteFixes({
+  primary,
+  secondary,
+  accent,
+}: PaletteInput): PaletteFixSuggestion[] {
+  const fixes: PaletteFixSuggestion[] = [];
+  const seen = new Set<string>();
+  const classification = classifyPalette([primary, secondary, accent]);
+
+  const tryContrastFix = (
+    a: string,
+    b: string,
+    roleToAdjust: PaletteColorRole,
+    current: string,
+    pairLabel: string,
+    targetRatio = 4.5
+  ) => {
+    if (contrastRatio(a, b) >= targetRatio) return;
+    const hsl = hexToHsl(current);
+    const otherL = hexToHsl(a === current ? b : a).l;
+    const direction = hsl.l > otherL ? -1 : 1;
+    for (const step of [14, 22, 30, 38]) {
+      const candidate = adjustLightness(current, direction * step);
+      const ratio =
+        a === current
+          ? contrastRatio(candidate, b)
+          : contrastRatio(a, candidate);
+      if (ratio >= targetRatio) {
+        pushFix(fixes, seen, {
+          role: roleToAdjust,
+          label: `Improve ${roleToAdjust} contrast`,
+          reason: `${pairLabel} is ${ratio < 3 ? "too low" : "borderline"} (${contrastRatio(a, b).toFixed(1)}:1) — ${direction > 0 ? "lighten" : "darken"} ${roleToAdjust} for clearer separation.`,
+          currentHex: current,
+          suggestedHex: candidate,
+        });
+        return;
+      }
+    }
+  };
+
+  tryContrastFix(primary, accent, "accent", accent, "Primary · Accent");
+  tryContrastFix(primary, secondary, "secondary", secondary, "Primary · Secondary");
+  tryContrastFix(secondary, accent, "accent", accent, "Secondary · Accent", 3);
+
+  const lightness = [
+    { role: "primary" as const, l: hexToHsl(primary).l, hex: primary },
+    { role: "secondary" as const, l: hexToHsl(secondary).l, hex: secondary },
+    { role: "accent" as const, l: hexToHsl(accent).l, hex: accent },
+  ];
+  const lightnessRange =
+    Math.max(...lightness.map((c) => c.l)) - Math.min(...lightness.map((c) => c.l));
+
+  if (lightnessRange < 28) {
+    const sorted = [...lightness].sort((a, b) => a.l - b.l);
+    const darkest = sorted[0];
+    const lightest = sorted[sorted.length - 1];
+    if (darkest.l > 18) {
+      pushFix(fixes, seen, {
+        role: darkest.role,
+        label: `Darken ${darkest.role}`,
+        reason:
+          "All three colours sit at a similar brightness — deepening the darkest role adds depth.",
+        currentHex: darkest.hex,
+        suggestedHex: adjustLightness(darkest.hex, -18),
+      });
+    }
+    if (lightest.l < 82) {
+      pushFix(fixes, seen, {
+        role: lightest.role,
+        label: `Lighten ${lightest.role}`,
+        reason:
+          "Widen the lightness spread so badge shapes stay legible at a glance.",
+        currentHex: lightest.hex,
+        suggestedHex: adjustLightness(lightest.hex, 18),
+      });
+    }
+  }
+
+  if (classification.harmony === "clashing") {
+    const primaryHue = hexToHsl(primary).h;
+    const accentHue = hexToHsl(accent).h;
+    const compHue = (primaryHue + 180) % 360;
+    const hueShift = ((compHue - accentHue + 540) % 360) - 180;
+    if (Math.abs(hueShift) > 12) {
+      const candidate = adjustHue(accent, hueShift);
+      pushFix(fixes, seen, {
+        role: "accent",
+        label: "Harmonize accent hue",
+        reason:
+          "The hues don't form a clear scheme — shift accent toward the complementary of primary for balanced contrast.",
+        currentHex: accent,
+        suggestedHex: candidate,
+      });
+    }
+  } else if (classification.type === "Eclectic") {
+    const primaryHue = hexToHsl(primary).h;
+    const accentHue = hexToHsl(accent).h;
+    const gap = hueGap(primaryHue, accentHue);
+    if (gap > 95 && gap < 150) {
+      const towardAnalogous = gap > 120 ? -35 : 35;
+      pushFix(fixes, seen, {
+        role: "accent",
+        label: "Soften accent hue",
+        reason:
+          "Accent sits in an awkward mid-range from primary — nudge it closer for an analogous set.",
+        currentHex: accent,
+        suggestedHex: adjustHue(accent, towardAnalogous),
+      });
+    }
+  }
+
+  return fixes.slice(0, 4);
+}
 
 /** Score a primary / secondary / accent combination for harmony, contrast and
  *  legibility, and return an actionable report — the "is this good?" verdict. */
@@ -490,6 +666,8 @@ export function reviewPalette(
       "Well balanced — harmonious hues with enough contrast to stay crisp."
     );
 
+  const fixes = suggestPaletteFixes({ primary, secondary, accent });
+
   return {
     classification,
     pairs,
@@ -498,5 +676,6 @@ export function reviewPalette(
     verdictTone: verdictTone as "good" | "ok" | "bad",
     verdictNote,
     tips,
+    fixes,
   };
 }

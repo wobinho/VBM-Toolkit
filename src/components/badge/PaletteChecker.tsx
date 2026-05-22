@@ -1,12 +1,17 @@
 "use client";
 
 import { useMemo } from "react";
-import { reviewPalette } from "@/lib/badge-builder/color";
+import {
+  reviewPalette,
+  type PaletteColorRole,
+} from "@/lib/badge-builder/color";
 
 type Props = {
   primary: string;
   secondary: string;
   accent: string;
+  locks?: Partial<Record<PaletteColorRole, boolean>>;
+  onApplyFix?: (role: PaletteColorRole, hex: string) => void;
 };
 
 /** Tone → CSS colour token. */
@@ -29,17 +34,30 @@ const TONE: Record<"good" | "ok" | "bad", { fg: string; bg: string; bd: string }
     },
   };
 
+const ROLE_LABEL: Record<PaletteColorRole, string> = {
+  primary: "Primary",
+  secondary: "Secondary",
+  accent: "Accent",
+};
+
 /**
  * Reviews the primary / secondary / accent combination — palette-harmony type
  * (Figma's scheme families) and WCAG contrast (the AA / AAA grades a checker
  * like Deque's reports) — and surfaces a plain "is this good?" verdict.
  */
-export function PaletteChecker({ primary, secondary, accent }: Props) {
+export function PaletteChecker({
+  primary,
+  secondary,
+  accent,
+  locks = {},
+  onApplyFix,
+}: Props) {
   const report = useMemo(
     () => reviewPalette(primary, secondary, accent),
     [primary, secondary, accent]
   );
   const verdictTone = TONE[report.verdictTone];
+  const showFixes = report.fixes.length > 0 && !!onApplyFix;
 
   return (
     <div className="card overflow-hidden">
@@ -149,6 +167,73 @@ export function PaletteChecker({ primary, secondary, accent }: Props) {
             })}
           </div>
         </div>
+
+        {/* fix suggestions */}
+        {showFixes && (
+          <div>
+            <div className="overline mb-2">Suggested fixes</div>
+            <ul className="space-y-2">
+              {report.fixes.map((fix) => {
+                const locked = !!locks[fix.role];
+                return (
+                  <li
+                    key={fix.id}
+                    className="rounded-md p-3"
+                    style={{
+                      background: "var(--color-surface-2)",
+                      border: "1px solid var(--color-line)",
+                    }}
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-1.5">
+                      <div className="min-w-0">
+                        <span className="text-[12px] font-medium text-fg">
+                          {fix.label}
+                        </span>
+                        <span className="ml-1.5 tag text-[10px]">
+                          {ROLE_LABEL[fix.role]}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <span
+                          className="w-5 h-5 rounded-[4px] border border-line-2"
+                          style={{ background: fix.currentHex }}
+                          title="Current"
+                        />
+                        <span className="text-fg-faint text-[10px]">→</span>
+                        <span
+                          className="w-5 h-5 rounded-[4px] border border-line-2"
+                          style={{ background: fix.suggestedHex }}
+                          title="Suggested"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-[11.5px] text-fg-muted leading-relaxed mb-2">
+                      {fix.reason}
+                    </p>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-mono text-[10px] text-fg-dim">
+                        {fix.currentHex} → {fix.suggestedHex}
+                      </span>
+                      <button
+                        type="button"
+                        className="btn btn-secondary text-[11px] px-2.5 py-1 shrink-0"
+                        disabled={locked}
+                        onClick={() => onApplyFix(fix.role, fix.suggestedHex)}
+                        title={
+                          locked
+                            ? `${ROLE_LABEL[fix.role]} is locked`
+                            : `Apply to ${ROLE_LABEL[fix.role]}`
+                        }
+                      >
+                        Apply
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
 
         {/* notes */}
         <div>

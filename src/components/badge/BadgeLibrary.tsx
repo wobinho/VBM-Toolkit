@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useBadgeStudio } from "@/lib/badge-builder/store";
+import { COLOR_CATEGORY_IDS, useBadgeStudio } from "@/lib/badge-builder/store";
 import { DEFAULT_BADGE_TEMPLATE } from "@/lib/badge-builder/presets";
 import type { BadgeCategory } from "@/lib/badge-builder/types";
 
@@ -139,8 +139,17 @@ export function BadgeLibrary({ bb }: Props) {
           <CategoryEditor
             key={active.id}
             category={active}
-            onAdd={(draft) => bb.addOption(active.id, draft)}
-            onAddMultiple={(drafts) => bb.addOptions(active.id, drafts)}
+            library={library}
+            onAdd={(draft) =>
+              active.kind === "color"
+                ? bb.addColorOptions([draft])
+                : bb.addOption(active.id, draft)
+            }
+            onAddMultiple={(drafts) =>
+              active.kind === "color"
+                ? bb.addColorOptions(drafts)
+                : bb.addOptions(active.id, drafts)
+            }
             onUpdate={(optId, patch) =>
               bb.updateOption(active.id, optId, patch)
             }
@@ -160,12 +169,14 @@ export function BadgeLibrary({ bb }: Props) {
 
 function CategoryEditor({
   category,
+  library,
   onAdd,
   onAddMultiple,
   onUpdate,
   onRemove,
 }: {
   category: BadgeCategory;
+  library: { categories: BadgeCategory[] };
   onAdd: (draft: { label: string; value: string; swatch?: string }) => void;
   onAddMultiple: (
     drafts: Array<{ label: string; value: string; swatch?: string }>
@@ -202,6 +213,11 @@ function CategoryEditor({
             >
               Import CSV
             </button>
+            {isColor && (
+              <span className="text-[10px] text-fg-dim hidden sm:inline">
+                syncs to all colour fields
+              </span>
+            )}
             <span className="tag text-[10px]">
               {category.options.length} value
               {category.options.length === 1 ? "" : "s"}
@@ -293,6 +309,7 @@ function CategoryEditor({
       {showImport && (
         <CsvImportModal
           category={category}
+          library={library}
           onClose={() => setShowImport(false)}
           onImport={(drafts) => {
             onAddMultiple(drafts);
@@ -547,11 +564,17 @@ function CloseIcon() {
 
 interface CsvImportModalProps {
   category: BadgeCategory;
+  library: { categories: BadgeCategory[] };
   onClose: () => void;
   onImport: (drafts: Array<{ label: string; value: string; swatch?: string }>) => void;
 }
 
-function CsvImportModal({ category, onClose, onImport }: CsvImportModalProps) {
+function CsvImportModal({
+  category,
+  library,
+  onClose,
+  onImport,
+}: CsvImportModalProps) {
   const isColor = category.kind === "color";
   const [activeTab, setActiveTab] = useState<"file" | "paste">("file");
   const [csvText, setCsvText] = useState("");
@@ -626,8 +649,7 @@ function CsvImportModal({ category, onClose, onImport }: CsvImportModalProps) {
           if (!/^#[0-9a-f]{3,6}$/i.test(swatch)) {
             swatch = "#888888";
           }
-          const value = row[2] || label;
-          return { label, value, swatch };
+          return { label, value: label, swatch };
         } else {
           const label = row[0] || "";
           const value = row[1] || label;
@@ -638,12 +660,23 @@ function CsvImportModal({ category, onClose, onImport }: CsvImportModalProps) {
   }, [parsedRows, hasHeader, isColor]);
 
   const existingLabels = useMemo(() => {
-    return new Set(category.options.map((o) => o.label.toLowerCase().trim()));
-  }, [category.options]);
+    if (!isColor) {
+      return new Set(category.options.map((o) => o.label.toLowerCase().trim()));
+    }
+    const labels = new Set<string>();
+    for (const id of COLOR_CATEGORY_IDS) {
+      const cat = library.categories.find((c) => c.id === id);
+      cat?.options.forEach((o) => labels.add(o.label.toLowerCase().trim()));
+    }
+    return labels;
+  }, [category.options, isColor, library.categories]);
 
   const existingValues = useMemo(() => {
-    return new Set(category.options.map((o) => o.value.toLowerCase().trim()));
-  }, [category.options]);
+    if (!isColor) {
+      return new Set(category.options.map((o) => o.value.toLowerCase().trim()));
+    }
+    return existingLabels;
+  }, [category.options, existingLabels, isColor]);
 
   const { itemsToImport, duplicateCount } = useMemo(() => {
     let dupCount = 0;
@@ -678,10 +711,11 @@ function CsvImportModal({ category, onClose, onImport }: CsvImportModalProps) {
         <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: "var(--color-line-2)" }}>
           <div>
             <h3 className="font-display text-[16px] font-semibold tracking-tight">
-              Import to {category.label}
+              Import to {isColor ? "colour library" : category.label}
             </h3>
             <span className="block text-[10.5px] text-fg-dim font-mono mt-0.5">
-              CSV data mapping · {isColor ? "Label, Swatch Hex, Value" : "Label, Value"}
+              CSV format · {isColor ? "Name, Hex (# optional)" : "Label, Value"}
+              {isColor ? " · added to primary, secondary & accent" : ""}
             </span>
           </div>
           <button
@@ -753,7 +787,7 @@ function CsvImportModal({ category, onClose, onImport }: CsvImportModalProps) {
               className="field-input font-mono text-[11px] min-h-[120px] resize-y"
               placeholder={
                 isColor
-                  ? "royal gold,#d4af37,royal gold\nivory white,#f3efe3,ivory white"
+                  ? "royal gold,#d4af37\nivory white,f3efe3\nmatte black,#16161a"
                   : "roaring tiger head,roaring tiger head\nsleeping cat,sleeping cat"
               }
               value={csvText}
@@ -792,17 +826,21 @@ function CsvImportModal({ category, onClose, onImport }: CsvImportModalProps) {
                 <table className="w-full text-[11px] text-left border-collapse">
                   <thead>
                     <tr className="border-b border-line/45 text-fg-dim font-mono">
-                      <th className="px-3 py-1 font-medium">Label</th>
-                      <th className="px-3 py-1 font-medium">Value</th>
-                      {isColor && <th className="px-3 py-1 font-medium w-16">Color</th>}
+                      <th className="px-3 py-1 font-medium">
+                        {isColor ? "Colour name" : "Label"}
+                      </th>
+                      {isColor ? (
+                        <th className="px-3 py-1 font-medium w-28">Hex</th>
+                      ) : (
+                        <th className="px-3 py-1 font-medium">Value</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-line/40">
                     {finalDrafts.slice(0, 5).map((d, idx) => (
                       <tr key={idx} className="text-fg-muted font-mono hover:bg-surface-3/20 transition-colors">
                         <td className="px-3 py-1.5 truncate max-w-[120px]">{d.label}</td>
-                        <td className="px-3 py-1.5 truncate max-w-[150px]">{d.value}</td>
-                        {isColor && (
+                        {isColor ? (
                           <td className="px-3 py-1.5">
                             <div className="flex items-center gap-1.5">
                               <span
@@ -812,6 +850,8 @@ function CsvImportModal({ category, onClose, onImport }: CsvImportModalProps) {
                               <span className="text-[10px]">{d.swatch}</span>
                             </div>
                           </td>
+                        ) : (
+                          <td className="px-3 py-1.5 truncate max-w-[150px]">{d.value}</td>
                         )}
                       </tr>
                     ))}

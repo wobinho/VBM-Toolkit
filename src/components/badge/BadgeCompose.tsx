@@ -3,10 +3,11 @@
 import { useMemo, useState } from "react";
 import {
   assembleBadgePrompt,
+  COLOR_CATEGORY_IDS,
   resolveBadge,
   useBadgeStudio,
 } from "@/lib/badge-builder/store";
-import { normalizeHex } from "@/lib/badge-builder/color";
+import { normalizeHex, type PaletteColorRole } from "@/lib/badge-builder/color";
 import type { BadgeCategory, BadgeOption } from "@/lib/badge-builder/types";
 import { CrestPreview } from "./CrestPreview";
 import { ColorField } from "./ColorField";
@@ -18,6 +19,12 @@ type Props = { bb: ReturnType<typeof useBadgeStudio> };
 const FALLBACK_HEX = "#888888";
 const hexOf = (opt: BadgeOption | null): string =>
   normalizeHex(opt?.swatch ?? "") ?? FALLBACK_HEX;
+
+const COLOR_ROLE_TO_CAT: Record<PaletteColorRole, string> = {
+  primary: "bcat-primary",
+  secondary: "bcat-secondary",
+  accent: "bcat-accent",
+};
 
 export function BadgeCompose({ bb }: Props) {
   const { state } = bb;
@@ -51,6 +58,13 @@ export function BadgeCompose({ bb }: Props) {
   };
 
   const lockedCount = library.categories.filter((c) => locks[c.id]).length;
+
+  const unlockedColorCount = COLOR_CATEGORY_IDS.filter((id) => !locks[id]).length;
+  const colorLocks: Partial<Record<PaletteColorRole, boolean>> = {
+    primary: !!locks["bcat-primary"],
+    secondary: !!locks["bcat-secondary"],
+    accent: !!locks["bcat-accent"],
+  };
 
   return (
     <div className="grid grid-cols-12 gap-6">
@@ -124,10 +138,37 @@ export function BadgeCompose({ bb }: Props) {
 
         {/* colour palette tools */}
         <div className="mt-3 space-y-3">
+          <div
+            className="flex items-center justify-between gap-2 px-1"
+          >
+            <span className="text-[12px] text-fg-muted">Colour palette</span>
+            <button
+              type="button"
+              className="btn btn-secondary text-[11.5px] px-2.5 py-1"
+              onClick={bb.randomizeColors}
+              disabled={unlockedColorCount === 0}
+              title={
+                unlockedColorCount === 0
+                  ? "All three colours are locked"
+                  : unlockedColorCount < 3
+                  ? `Randomize ${unlockedColorCount} unlocked colour${
+                      unlockedColorCount > 1 ? "s" : ""
+                    }`
+                  : "Randomize primary, secondary, and accent"
+              }
+            >
+              <DiceIcon />
+              Randomize colours
+            </button>
+          </div>
           <PaletteChecker
             primary={palette.primary}
             secondary={palette.secondary}
             accent={palette.accent}
+            locks={colorLocks}
+            onApplyFix={(role, hex) =>
+              bb.setCustomColor(COLOR_ROLE_TO_CAT[role], hex)
+            }
           />
           <SavedPalettes bb={bb} current={palette} />
         </div>
@@ -213,9 +254,10 @@ export function BadgeCompose({ bb }: Props) {
           )}
 
           <p className="text-[11.5px] text-fg-dim leading-relaxed">
-            Randomize re-rolls every unlocked field. Lock a field to keep it
-            fixed while the rest re-roll. Pick any colour with the hex picker,
-            save the ones you like, and check the palette before you generate.
+            Randomize re-rolls every unlocked field; Randomize colours only
+            re-rolls primary, secondary, and accent (locked slots stay put).
+            Pick any colour with the hex picker, save the ones you like, and use
+            the palette checker&apos;s suggested fixes before you generate.
           </p>
         </div>
       </aside>

@@ -279,6 +279,27 @@ export function useBadgeStudio() {
     });
   }, []);
 
+  /** Re-roll primary, secondary, and accent — locked slots are left unchanged. */
+  const randomizeColors = useCallback(() => {
+    setState((s) => {
+      const selection: BadgeSelectionMap = { ...s.selection };
+      const customColors = { ...s.customColors };
+      for (const catId of COLOR_CATEGORY_IDS) {
+        if (s.locks[catId]) continue;
+        const cat = s.library.categories.find((c) => c.id === catId);
+        if (!cat || cat.options.length === 0) continue;
+        const current = selection[catId];
+        const pool =
+          cat.options.length > 1
+            ? cat.options.filter((o) => o.id !== current)
+            : cat.options;
+        selection[catId] = pick(pool).id;
+        delete customColors[catId];
+      }
+      return { ...s, selection, customColors };
+    });
+  }, []);
+
   /** Restore default selections — locked categories keep their current pick. */
   const resetSelection = useCallback(() => {
     setState((s) => {
@@ -480,6 +501,74 @@ export function useBadgeStudio() {
     []
   );
 
+  /** Add colours to primary, secondary, and accent libraries in one step. */
+  const addColorOptions = useCallback(
+    (drafts: Array<{ label: string; value: string; swatch?: string }>) => {
+      setState((s) => {
+        const colorCats = s.library.categories.filter(
+          (c) => c.kind === "color" && COLOR_CATEGORY_IDS.includes(c.id as (typeof COLOR_CATEGORY_IDS)[number])
+        );
+        if (colorCats.length === 0) return s;
+
+        const perCatNew = new Map<string, BadgeOption[]>();
+        for (const cat of colorCats) {
+          const existingLabels = new Set(
+            cat.options.map((o) => o.label.toLowerCase().trim())
+          );
+          const existingValues = new Set(
+            cat.options.map((o) => o.value.toLowerCase().trim())
+          );
+          const batchLabels = new Set<string>();
+          const batchValues = new Set<string>();
+          const newOptions: BadgeOption[] = [];
+
+          for (const draft of drafts) {
+            const label = draft.label.trim();
+            const value = (draft.value || label).trim();
+            if (!label || !value) continue;
+
+            const lLower = label.toLowerCase();
+            const vLower = value.toLowerCase();
+
+            if (
+              existingLabels.has(lLower) ||
+              existingValues.has(vLower) ||
+              batchLabels.has(lLower) ||
+              batchValues.has(vLower)
+            ) {
+              continue;
+            }
+
+            newOptions.push({
+              id: uid(),
+              label,
+              value,
+              ...(draft.swatch ? { swatch: draft.swatch.trim() } : {}),
+            });
+            batchLabels.add(lLower);
+            batchValues.add(vLower);
+          }
+
+          if (newOptions.length > 0) perCatNew.set(cat.id, newOptions);
+        }
+
+        if (perCatNew.size === 0) return s;
+
+        return {
+          ...s,
+          library: {
+            ...s.library,
+            categories: s.library.categories.map((c) => {
+              const added = perCatNew.get(c.id);
+              return added ? { ...c, options: [...c.options, ...added] } : c;
+            }),
+          },
+        };
+      });
+    },
+    []
+  );
+
   const updateOption = useCallback(
     (
       categoryId: string,
@@ -562,6 +651,7 @@ export function useBadgeStudio() {
     toggleLock,
     randomizeAll,
     randomizeOne,
+    randomizeColors,
     resetSelection,
     saveColor,
     deleteSavedColor,
@@ -573,6 +663,7 @@ export function useBadgeStudio() {
     rollTeamName,
     addOption,
     addOptions,
+    addColorOptions,
     updateOption,
     removeOption,
     setTemplate,
