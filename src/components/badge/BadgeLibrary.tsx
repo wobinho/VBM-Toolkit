@@ -154,6 +154,7 @@ export function BadgeLibrary({ bb }: Props) {
               bb.updateOption(active.id, optId, patch)
             }
             onRemove={(optId) => bb.removeOption(active.id, optId)}
+            onRemoveMany={(ids) => bb.removeOptions(active.id, ids)}
           />
         ) : (
           <div className="card p-12 text-center text-[13px] text-fg-muted">
@@ -174,6 +175,7 @@ function CategoryEditor({
   onAddMultiple,
   onUpdate,
   onRemove,
+  onRemoveMany,
 }: {
   category: BadgeCategory;
   library: { categories: BadgeCategory[] };
@@ -186,9 +188,50 @@ function CategoryEditor({
     patch: { label?: string; value?: string; swatch?: string }
   ) => void;
   onRemove: (optId: string) => void;
+  onRemoveMany: (optIds: string[]) => void;
 }) {
   const isColor = category.kind === "color";
   const [showImport, setShowImport] = useState(false);
+
+  // Fast deletion: a select mode with per-row checkboxes and bulk delete.
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const allSelected =
+    category.options.length > 0 && selected.size === category.options.length;
+
+  const exitSelectMode = () => {
+    setSelectMode(false);
+    setSelected(new Set());
+  };
+
+  const toggleSelectAll = () => {
+    setSelected(
+      allSelected ? new Set() : new Set(category.options.map((o) => o.id))
+    );
+  };
+
+  const toggleOne = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleDeleteSelected = () => {
+    const n = selected.size;
+    if (n === 0) return;
+    if (
+      confirm(
+        `Delete ${n} value${n === 1 ? "" : "s"} from ${category.label}? This cannot be undone.`
+      )
+    ) {
+      onRemoveMany([...selected]);
+      exitSelectMode();
+    }
+  };
 
   return (
     <div className="card overflow-hidden">
@@ -196,8 +239,8 @@ function CategoryEditor({
         className="px-5 py-4 border-b bg-surface-2"
         style={{ borderColor: "var(--color-line)" }}
       >
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
             <h3 className="font-display text-[16px] font-semibold tracking-tight">
               {category.label}
             </h3>
@@ -205,37 +248,94 @@ function CategoryEditor({
               {category.slot} · {isColor ? "colour values" : "text values"}
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              className="btn btn-secondary px-2.5 py-1 text-[11.5px] cursor-pointer"
-              onClick={() => setShowImport(true)}
-            >
-              Import CSV
-            </button>
-            {isColor && (
-              <span className="text-[10px] text-fg-dim hidden sm:inline">
-                syncs to all colour fields
-              </span>
+          <div className="flex items-center gap-2 shrink-0">
+            {selectMode ? (
+              <>
+                <button
+                  type="button"
+                  className="btn btn-secondary px-2.5 py-1 text-[11.5px] cursor-pointer"
+                  onClick={toggleSelectAll}
+                  disabled={category.options.length === 0}
+                >
+                  {allSelected ? "Clear" : "Select all"}
+                </button>
+                <button
+                  type="button"
+                  className="btn px-2.5 py-1 text-[11.5px] cursor-pointer disabled:cursor-not-allowed"
+                  style={{
+                    background: "var(--color-danger)",
+                    color: "#1a1010",
+                    opacity: selected.size === 0 ? 0.45 : 1,
+                  }}
+                  onClick={handleDeleteSelected}
+                  disabled={selected.size === 0}
+                >
+                  Delete{selected.size > 0 ? ` ${selected.size}` : ""}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-ghost px-2.5 py-1 text-[11.5px] cursor-pointer"
+                  onClick={exitSelectMode}
+                >
+                  Done
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="btn btn-secondary px-2.5 py-1 text-[11.5px] cursor-pointer"
+                  onClick={() => setShowImport(true)}
+                >
+                  Import CSV
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary px-2.5 py-1 text-[11.5px] cursor-pointer"
+                  onClick={() => setSelectMode(true)}
+                  disabled={category.options.length === 0}
+                  title="Select multiple values to delete at once"
+                >
+                  Select
+                </button>
+                <span className="tag text-[10px]">
+                  {category.options.length} value
+                  {category.options.length === 1 ? "" : "s"}
+                </span>
+              </>
             )}
-            <span className="tag text-[10px]">
-              {category.options.length} value
-              {category.options.length === 1 ? "" : "s"}
-            </span>
           </div>
         </div>
       </div>
 
       <div className="p-5">
+        {selectMode && (
+          <div className="flex items-center justify-between gap-2 mb-3 px-2.5 py-2 rounded-md bg-surface-2 border border-line text-[11.5px] text-fg-muted">
+            <span>
+              {selected.size > 0
+                ? `${selected.size} of ${category.options.length} selected`
+                : "Tap rows to select, then Delete"}
+            </span>
+            <button
+              type="button"
+              className="font-medium text-accent hover:underline cursor-pointer"
+              onClick={toggleSelectAll}
+            >
+              {allSelected ? "Clear selection" : "Select all"}
+            </button>
+          </div>
+        )}
+
         <div className="hidden sm:flex items-center gap-2 mb-2 overline">
+          {selectMode ? (
+            <span className="w-5" />
+          ) : (
+            <span className={isColor ? "w-9" : "w-8"} />
+          )}
           {isColor ? (
-            <>
-              <span className="w-9" />
-              <span className="flex-1">Colour name (used in the prompt)</span>
-            </>
+            <span className="flex-1">Colour name (used in the prompt)</span>
           ) : (
             <>
-              <span className="w-8" />
               <span className="w-[40%]">Label</span>
               <span className="flex-1">Prompt fragment</span>
             </>
@@ -243,59 +343,111 @@ function CategoryEditor({
         </div>
 
         <ul className="space-y-1 max-h-[440px] overflow-auto scrollbar-thin pr-1 -mr-1">
-          {category.options.map((opt, i) => (
-            <li
-              key={opt.id}
-              className="flex items-center gap-2 group p-1.5 rounded-md hover:bg-surface-2 transition-colors"
-            >
-              <span className="font-mono text-[10px] tab-fig text-fg-faint w-5 text-center shrink-0">
-                {String(i + 1).padStart(2, "0")}
-              </span>
-
-              {isColor ? (
-                <>
-                  <SwatchInput
-                    value={opt.swatch || "#888888"}
-                    onChange={(swatch) => onUpdate(opt.id, { swatch })}
-                  />
-                  <input
-                    className="field-input flex-1 py-1.5"
-                    value={opt.label}
-                    onChange={(e) =>
-                      onUpdate(opt.id, {
-                        label: e.target.value,
-                        value: e.target.value,
-                      })
-                    }
-                  />
-                </>
-              ) : (
-                <>
-                  <input
-                    className="field-input w-[40%] py-1.5"
-                    value={opt.label}
-                    onChange={(e) => onUpdate(opt.id, { label: e.target.value })}
-                  />
-                  <input
-                    className="field-input flex-1 py-1.5 font-mono text-[11px]"
-                    value={opt.value}
-                    onChange={(e) => onUpdate(opt.id, { value: e.target.value })}
-                  />
-                </>
-              )}
-
-              <button
-                type="button"
-                className="btn-icon hover:!text-danger shrink-0"
-                onClick={() => {
-                  if (confirm(`Delete value "${opt.label}"?`)) onRemove(opt.id);
-                }}
-                aria-label={`Delete ${opt.label}`}
+          {category.options.map((opt, i) => {
+            const isSelected = selected.has(opt.id);
+            return (
+              <li
+                key={opt.id}
+                className={`flex items-center gap-2 group p-1.5 rounded-md transition-colors ${
+                  selectMode
+                    ? `cursor-pointer ${
+                        isSelected ? "bg-accent/10" : "hover:bg-surface-2"
+                      }`
+                    : "hover:bg-surface-2"
+                }`}
+                onClick={selectMode ? () => toggleOne(opt.id) : undefined}
               >
-                <TrashIcon />
-              </button>
-            </li>
-          ))}
+                {selectMode ? (
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => toggleOne(opt.id)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="w-3.5 h-3.5 shrink-0 accent-accent ml-1"
+                    aria-label={`Select ${opt.label}`}
+                  />
+                ) : (
+                  <span className="font-mono text-[10px] tab-fig text-fg-faint w-5 text-center shrink-0">
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                )}
+
+                {isColor ? (
+                  selectMode ? (
+                    <>
+                      <span
+                        className="w-9 h-9 rounded-md shrink-0"
+                        style={{
+                          background: opt.swatch || "#888888",
+                          border: "1px solid var(--color-line-2)",
+                        }}
+                      />
+                      <span className="flex-1 text-[13px] truncate">
+                        {opt.label}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <SwatchInput
+                        value={opt.swatch || "#888888"}
+                        onChange={(swatch) => onUpdate(opt.id, { swatch })}
+                      />
+                      <input
+                        className="field-input flex-1 py-1.5"
+                        value={opt.label}
+                        onChange={(e) =>
+                          onUpdate(opt.id, {
+                            label: e.target.value,
+                            value: e.target.value,
+                          })
+                        }
+                      />
+                    </>
+                  )
+                ) : selectMode ? (
+                  <>
+                    <span className="w-[40%] text-[13px] truncate">
+                      {opt.label}
+                    </span>
+                    <span className="flex-1 font-mono text-[11px] text-fg-muted truncate">
+                      {opt.value}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <input
+                      className="field-input w-[40%] py-1.5"
+                      value={opt.label}
+                      onChange={(e) =>
+                        onUpdate(opt.id, { label: e.target.value })
+                      }
+                    />
+                    <input
+                      className="field-input flex-1 py-1.5 font-mono text-[11px]"
+                      value={opt.value}
+                      onChange={(e) =>
+                        onUpdate(opt.id, { value: e.target.value })
+                      }
+                    />
+                  </>
+                )}
+
+                {!selectMode && (
+                  <button
+                    type="button"
+                    className="btn-icon hover:!text-danger shrink-0"
+                    onClick={() => {
+                      if (confirm(`Delete value "${opt.label}"?`))
+                        onRemove(opt.id);
+                    }}
+                    aria-label={`Delete ${opt.label}`}
+                  >
+                    <TrashIcon />
+                  </button>
+                )}
+              </li>
+            );
+          })}
           {category.options.length === 0 && (
             <li className="card p-6 text-center text-[13px] text-fg-muted">
               No values yet. Add one below.
@@ -303,7 +455,7 @@ function CategoryEditor({
           )}
         </ul>
 
-        <AddValueForm isColor={isColor} onAdd={onAdd} />
+        {!selectMode && <AddValueForm isColor={isColor} onAdd={onAdd} />}
       </div>
 
       {showImport && (

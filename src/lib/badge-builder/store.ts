@@ -8,6 +8,7 @@ import {
 } from "./presets";
 import { describeColor, normalizeHex } from "./color";
 import type {
+  BadgeBatchMap,
   BadgeCategory,
   BadgeLibrary,
   BadgeOption,
@@ -33,6 +34,30 @@ export const COLOR_CATEGORY_IDS = [
   "bcat-accent",
 ] as const;
 
+/** How many extra value boxes batch generation adds (boxes 2 and 3). */
+export const BATCH_EXTRA_COUNT = 2;
+
+/** Pick `count` distinct random option ids, avoiding `excludeId` when the
+ *  category has enough options to spare. Mod-wraps when options are scarce. */
+function pickBatchExtras(
+  cat: BadgeCategory,
+  count: number,
+  excludeId?: string | null
+): string[] {
+  const pool = cat.options.filter((o) => o.id !== excludeId);
+  const source = pool.length > 0 ? pool : cat.options;
+  const shuffled = [...source];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  const out: string[] = [];
+  for (let i = 0; i < count; i++) {
+    out.push(shuffled[i % shuffled.length]?.id ?? "");
+  }
+  return out;
+}
+
 /* -------------------------------------------------------------------------- */
 /*  Default state                                                             */
 /* -------------------------------------------------------------------------- */
@@ -52,6 +77,7 @@ export const DEFAULT_BADGE_STATE: BadgeState = {
   customColors: {},
   savedColors: [],
   savedPalettes: [],
+  batch: {},
 };
 
 /* -------------------------------------------------------------------------- */
@@ -153,6 +179,27 @@ function normalize(raw: unknown): BadgeState {
         .filter((p): p is SavedPalette => p !== null)
     : [];
 
+  // Batch — keep only categories that still exist, and option ids that still
+  // point at real options.
+  const batch: BadgeBatchMap = {};
+  const savedBatch = r.batch;
+  if (savedBatch && typeof savedBatch === "object") {
+    for (const cat of library.categories) {
+      const b = (savedBatch as Record<string, unknown>)[cat.id];
+      if (b && typeof b === "object") {
+        const bo = b as { enabled?: unknown; optionIds?: unknown };
+        const ids = Array.isArray(bo.optionIds)
+          ? bo.optionIds.filter(
+              (id): id is string =>
+                typeof id === "string" &&
+                cat.options.some((o) => o.id === id)
+            )
+          : [];
+        batch[cat.id] = { enabled: !!bo.enabled, optionIds: ids };
+      }
+    }
+  }
+
   return {
     version: 1,
     library,
@@ -162,6 +209,7 @@ function normalize(raw: unknown): BadgeState {
     customColors,
     savedColors,
     savedPalettes,
+    batch,
   };
 }
 
@@ -249,12 +297,22 @@ export function useBadgeStudio() {
     setState((s) => {
       const selection: BadgeSelectionMap = { ...s.selection };
       const customColors = { ...s.customColors };
+      const batch = { ...s.batch };
       for (const cat of s.library.categories) {
         if (s.locks[cat.id] || cat.options.length === 0) continue;
-        selection[cat.id] = pick(cat.options).id;
+        const newId = pick(cat.options).id;
+        selection[cat.id] = newId;
         delete customColors[cat.id];
+        // A batched category re-rolls its extra boxes too.
+        const b = batch[cat.id];
+        if (b?.enabled) {
+          batch[cat.id] = {
+            ...b,
+            optionIds: pickBatchExtras(cat, BATCH_EXTRA_COUNT, newId),
+          };
+        }
       }
-      return { ...s, selection, customColors };
+      return { ...s, selection, customColors, batch };
     });
   }, []);
 
@@ -269,12 +327,22 @@ export function useBadgeStudio() {
         cat.options.length > 1
           ? cat.options.filter((o) => o.id !== current)
           : cat.options;
+      const newId = pick(pool).id;
       const customColors = { ...s.customColors };
       delete customColors[categoryId];
+      const batch = { ...s.batch };
+      const b = batch[categoryId];
+      if (b?.enabled) {
+        batch[categoryId] = {
+          ...b,
+          optionIds: pickBatchExtras(cat, BATCH_EXTRA_COUNT, newId),
+        };
+      }
       return {
         ...s,
-        selection: { ...s.selection, [categoryId]: pick(pool).id },
+        selection: { ...s.selection, [categoryId]: newId },
         customColors,
+        batch,
       };
     });
   }, []);
@@ -612,9 +680,55 @@ export function useBadgeStudio() {
           null;
         selection[categoryId] = fallback;
       }
-      return { ...s, library: { ...s.library, categories }, selection };
+      // Drop the removed option from any batch boxes referencing it.
+      const batch = { ...s.batch };
+      const b = batch[categoryId];
+      if (b) {
+        batch[categoryId] = {
+          ...b,
+          optionIds: b.optionIds.filter((id) => id !== optionId),
+        };
+      }
+      return { ...s, library: { ...s.library, categories }, selection, batch };
     });
   }, []);
+
+  /** Remove many options from a category in one step — powers fast deletion
+   *  and "select all → delete" in the library. */
+  const removeOptions = useCallback(
+    (categoryId: string, optionIds: string[]) => {
+      setState((s) => {
+        if (optionIds.length === 0) return s;
+        const remove = new Set(optionIds);
+        const categories = s.library.categories.map((c) =>
+          c.id === categoryId
+            ? { ...c, options: c.options.filter((o) => !remove.has(o.id)) }
+            : c
+        );
+        // If the current pick was removed, fall back to a still-valid one.
+        const selection = { ...s.selection };
+        const cur = selection[categoryId];
+        if (cur && remove.has(cur)) {
+          const cat = categories.find((c) => c.id === categoryId);
+          selection[categoryId] =
+            cat?.options.find((o) => o.id === cat.defaultOptionId)?.id ??
+            cat?.options[0]?.id ??
+            null;
+        }
+        // Drop removed options from any batch boxes referencing them.
+        const batch = { ...s.batch };
+        const b = batch[categoryId];
+        if (b) {
+          batch[categoryId] = {
+            ...b,
+            optionIds: b.optionIds.filter((id) => !remove.has(id)),
+          };
+        }
+        return { ...s, library: { ...s.library, categories }, selection, batch };
+      });
+    },
+    []
+  );
 
   const setTemplate = useCallback((basePromptTemplate: string) => {
     setState((s) => ({
@@ -640,8 +754,53 @@ export function useBadgeStudio() {
       selection: buildDefaultSelection(DEFAULT_BADGE_LIBRARY),
       locks: {},
       customColors: {},
+      batch: {},
     }));
   }, []);
+
+  /* — batch generation — */
+
+  /** Toggle batch generation for a category. Enabling seeds the extra boxes
+   *  with distinct picks (kept if the category already had valid ones). */
+  const toggleBatch = useCallback((categoryId: string) => {
+    setState((s) => {
+      const cat = s.library.categories.find((c) => c.id === categoryId);
+      if (!cat || cat.options.length === 0) return s;
+      const prev = s.batch[categoryId];
+      const enabled = !prev?.enabled;
+      let optionIds = prev?.optionIds ?? [];
+      if (enabled) {
+        const valid = optionIds.filter((id) =>
+          cat.options.some((o) => o.id === id)
+        );
+        optionIds =
+          valid.length >= BATCH_EXTRA_COUNT
+            ? valid.slice(0, BATCH_EXTRA_COUNT)
+            : pickBatchExtras(cat, BATCH_EXTRA_COUNT, s.selection[categoryId]);
+      }
+      return {
+        ...s,
+        batch: { ...s.batch, [categoryId]: { enabled, optionIds } },
+      };
+    });
+  }, []);
+
+  /** Set the option chosen in one of a category's extra batch boxes. */
+  const setBatchOption = useCallback(
+    (categoryId: string, index: number, optionId: string) => {
+      setState((s) => {
+        const prev = s.batch[categoryId] ?? { enabled: true, optionIds: [] };
+        const optionIds = [...prev.optionIds];
+        while (optionIds.length <= index) optionIds.push("");
+        optionIds[index] = optionId;
+        return {
+          ...s,
+          batch: { ...s.batch, [categoryId]: { ...prev, optionIds } },
+        };
+      });
+    },
+    []
+  );
 
   return {
     state,
@@ -666,6 +825,9 @@ export function useBadgeStudio() {
     addColorOptions,
     updateOption,
     removeOption,
+    removeOptions,
+    toggleBatch,
+    setBatchOption,
     setTemplate,
     resetTemplate,
     resetLibrary,
@@ -739,11 +901,26 @@ export function assembleBadgePrompt(state: BadgeState): {
   const missing: string[] = [];
 
   for (const cat of library.categories) {
-    const opt = effectiveOption(state, cat);
-    const value = opt?.value ?? "";
+    let value: string;
+    const batch = state.batch[cat.id];
+    if (batch?.enabled) {
+      // Batched slot — `{value, value, value}`: the normal selection plus the
+      // extra batch boxes. Empty boxes are skipped.
+      const values: string[] = [];
+      const first = effectiveOption(state, cat);
+      if (first?.value) values.push(first.value);
+      for (const id of batch.optionIds) {
+        const o = cat.options.find((x) => x.id === id);
+        if (o?.value) values.push(o.value);
+      }
+      value = values.length > 0 ? `{${values.join(", ")}}` : "";
+    } else {
+      value = effectiveOption(state, cat)?.value ?? "";
+    }
     if (!value) missing.push(cat.label);
     const safeSlot = cat.slot.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    out = out.replace(new RegExp(safeSlot, "g"), value);
+    // Function replacer so `$` in a value is never read as a backreference.
+    out = out.replace(new RegExp(safeSlot, "g"), () => value);
   }
 
   // Weave the team name in only when enabled and non-empty.

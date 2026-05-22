@@ -3,7 +3,9 @@
 import { useMemo, useState } from "react";
 import {
   assembleBadgePrompt,
+  BATCH_EXTRA_COUNT,
   COLOR_CATEGORY_IDS,
+  effectiveOption,
   resolveBadge,
   useBadgeStudio,
 } from "@/lib/badge-builder/store";
@@ -256,8 +258,10 @@ export function BadgeCompose({ bb }: Props) {
           <p className="text-[11.5px] text-fg-dim leading-relaxed">
             Randomize re-rolls every unlocked field; Randomize colours only
             re-rolls primary, secondary, and accent (locked slots stay put).
-            Pick any colour with the hex picker, save the ones you like, and use
-            the palette checker&apos;s suggested fixes before you generate.
+            Toggle batch on a field to feed it several values at once — they
+            land in the prompt as {"{a, b, c}"}. Pick any colour with the hex
+            picker, save the ones you like, and use the palette checker&apos;s
+            suggested fixes before you generate.
           </p>
         </div>
       </aside>
@@ -342,6 +346,8 @@ function CategoryCard({
   onRandomize: () => void;
 }) {
   const isColor = category.kind === "color";
+  const noOptions = category.options.length === 0;
+  const batchEnabled = !!bb.state.batch[category.id]?.enabled;
 
   return (
     <div
@@ -357,6 +363,9 @@ function CategoryCard({
           <span className="font-mono text-[10px] text-fg-faint hidden sm:inline">
             {category.slot}
           </span>
+          {batchEnabled && (
+            <span className="tag tag-accent text-[9px]">batch</span>
+          )}
         </div>
         <div className="flex items-center gap-0.5 shrink-0">
           <button
@@ -377,9 +386,24 @@ function CategoryCard({
           </button>
           <button
             type="button"
+            className={`btn-icon ${batchEnabled ? "btn-icon-active" : ""}`}
+            onClick={() => bb.toggleBatch(category.id)}
+            disabled={noOptions}
+            title={
+              batchEnabled
+                ? `Turn off batch generation for ${category.label}`
+                : `Batch generation — fill ${category.label} with multiple values`
+            }
+            aria-label={`Toggle batch generation for ${category.label}`}
+            aria-pressed={batchEnabled}
+          >
+            <BatchIcon />
+          </button>
+          <button
+            type="button"
             className="btn-icon"
             onClick={onRandomize}
-            disabled={locked || category.options.length === 0}
+            disabled={locked || noOptions}
             title={
               locked
                 ? `${category.label} is locked`
@@ -401,7 +425,7 @@ function CategoryCard({
             value={selectedId}
             onChange={(e) => onSelect(e.target.value)}
           >
-            {category.options.length === 0 && (
+            {noOptions && (
               <option value="" disabled>
                 — no options —
               </option>
@@ -412,13 +436,79 @@ function CategoryCard({
               </option>
             ))}
           </select>
-          {category.options.length === 0 && (
+          {noOptions && (
             <div className="mt-2 text-[11px] text-danger">
               No values · add some in the Library tab
             </div>
           )}
         </>
       )}
+
+      {batchEnabled && !noOptions && <BatchPanel bb={bb} category={category} />}
+    </div>
+  );
+}
+
+/**
+ * The extra value boxes shown when batch generation is on for a category. Box 1
+ * is the category's normal control above; this renders boxes 2…N and a live
+ * preview of the `{a, b, c}` fragment that lands in the prompt.
+ */
+function BatchPanel({
+  bb,
+  category,
+}: {
+  bb: ReturnType<typeof useBadgeStudio>;
+  category: BadgeCategory;
+}) {
+  const ids = bb.state.batch[category.id]?.optionIds ?? [];
+  const valueOf = (id: string) =>
+    category.options.find((o) => o.id === id)?.value ?? "";
+
+  const first = effectiveOption(bb.state, category)?.value ?? "";
+  const previewValues = [
+    first,
+    ...Array.from({ length: BATCH_EXTRA_COUNT }, (_, i) => valueOf(ids[i] ?? "")),
+  ].filter(Boolean);
+
+  return (
+    <div
+      className="mt-2.5 rounded-md p-2.5 bg-surface-2 space-y-2"
+      style={{ border: "1px solid var(--color-line)" }}
+    >
+      <div className="flex items-center justify-between">
+        <span className="overline">Batch values</span>
+        <span className="font-mono text-[10px] text-fg-dim">
+          {BATCH_EXTRA_COUNT} extra picks
+        </span>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {Array.from({ length: BATCH_EXTRA_COUNT }, (_, i) => (
+          <label key={i} className="block">
+            <span className="font-mono text-[10px] text-fg-faint block mb-1">
+              Value {i + 2}
+            </span>
+            <select
+              className="field-input py-1.5"
+              value={ids[i] ?? ""}
+              onChange={(e) => bb.setBatchOption(category.id, i, e.target.value)}
+            >
+              {!ids[i] && <option value="">— pick —</option>}
+              {category.options.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        ))}
+      </div>
+      <div className="font-mono text-[10.5px] leading-relaxed break-words">
+        <span className="text-fg-faint">prompt → </span>
+        <span className="text-fg-muted">
+          {previewValues.length > 0 ? `{${previewValues.join(", ")}}` : "—"}
+        </span>
+      </div>
     </div>
   );
 }
@@ -513,6 +603,26 @@ function DiceIcon() {
       <circle cx="15.5" cy="15.5" r="1.1" fill="currentColor" stroke="none" />
       <circle cx="15.5" cy="8.5" r="1.1" fill="currentColor" stroke="none" />
       <circle cx="8.5" cy="15.5" r="1.1" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function BatchIcon() {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="3" width="8" height="8" rx="1.5" />
+      <rect x="13" y="3" width="8" height="8" rx="1.5" />
+      <rect x="3" y="13" width="8" height="8" rx="1.5" />
+      <rect x="13" y="13" width="8" height="8" rx="1.5" />
     </svg>
   );
 }

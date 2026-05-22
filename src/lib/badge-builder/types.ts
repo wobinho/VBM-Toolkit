@@ -73,6 +73,19 @@ export type SavedPalette = {
  *  from the picker (rather than a preset) is held. */
 export type CustomColorMap = Record<string, string>;
 
+/** Batch generation for one category. When enabled the slot is filled with
+ *  `{value, value, value}` — the normal selection plus the extra picks below —
+ *  instead of a single value. */
+export type BadgeBatchState = {
+  enabled: boolean;
+  /** Option ids for the extra batch boxes. Box 1 is the normal category
+   *  selection; these are boxes 2 and onward. */
+  optionIds: string[];
+};
+
+/** Batch state keyed by category id. */
+export type BadgeBatchMap = Record<string, BadgeBatchState>;
+
 export type BadgeState = {
   version: number;
   library: BadgeLibrary;
@@ -85,4 +98,6 @@ export type BadgeState = {
   savedColors: SavedColor[];
   /** The user's saved three-colour palettes. */
   savedPalettes: SavedPalette[];
+  /** Per-category batch generation state. */
+  batch: BadgeBatchMap;
 };
