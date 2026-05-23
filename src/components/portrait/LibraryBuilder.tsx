@@ -29,6 +29,7 @@ type Props = {
     patch: { label?: string; value?: string }
   ) => void;
   onRemoveOption: (categoryId: string, optionId: string) => void;
+  onRemoveAllOptions: (categoryId: string) => void;
   onReset: () => void;
 };
 
@@ -43,6 +44,7 @@ export function LibraryBuilder(props: Props) {
     onAddOption,
     onUpdateOption,
     onRemoveOption,
+    onRemoveAllOptions,
     onReset,
   } = props;
 
@@ -138,6 +140,7 @@ export function LibraryBuilder(props: Props) {
               onUpdateOption(active.id, optId, patch)
             }
             onRemoveOption={(optId) => onRemoveOption(active.id, optId)}
+            onRemoveAllOptions={() => onRemoveAllOptions(active.id)}
           />
         ) : (
           <div className="card p-12 text-center">
@@ -362,6 +365,7 @@ function CategoryEditor({
   onAddOption,
   onUpdateOption,
   onRemoveOption,
+  onRemoveAllOptions,
 }: {
   category: FeatureCategory;
   onUpdate: (patch: Partial<Omit<FeatureCategory, "id" | "options">>) => void;
@@ -371,6 +375,7 @@ function CategoryEditor({
     patch: { label?: string; value?: string }
   ) => void;
   onRemoveOption: (optId: string) => void;
+  onRemoveAllOptions: () => void;
 }) {
   return (
     <div className="card overflow-hidden">
@@ -436,9 +441,24 @@ function CategoryEditor({
               {category.options.length}
             </span>
           </h4>
-          <div className="hidden sm:flex items-center gap-6 overline">
-            <span className="w-[200px]">Label</span>
-            <span className="flex-1">Prompt fragment</span>
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-6 overline">
+              <span className="w-[200px]">Label</span>
+              <span className="flex-1">Prompt fragment</span>
+            </div>
+            {category.options.length > 0 && (
+              <button
+                type="button"
+                className="text-[11px] px-2 py-1 rounded hover:bg-danger/10 hover:text-danger transition-colors text-fg-dim"
+                onClick={() => {
+                  if (confirm(`Delete all ${category.options.length} options in "${category.label}"?`))
+                    onRemoveAllOptions();
+                }}
+                title="Delete all options in this category"
+              >
+                Delete all
+              </button>
+            )}
           </div>
         </div>
 

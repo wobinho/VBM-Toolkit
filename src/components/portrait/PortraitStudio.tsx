@@ -103,6 +103,7 @@ export function PortraitStudio() {
             onAddOption={lib.addOption}
             onUpdateOption={lib.updateOption}
             onRemoveOption={lib.removeOption}
+            onRemoveAllOptions={lib.removeAllOptions}
             onReset={() => {
               if (
                 confirm(

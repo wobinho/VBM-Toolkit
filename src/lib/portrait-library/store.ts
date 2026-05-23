@@ -125,6 +125,15 @@ export function useLibrary() {
     }));
   }, []);
 
+  const removeAllOptions = useCallback((categoryId: string) => {
+    setLibrary((l) => ({
+      ...l,
+      categories: l.categories.map((c) =>
+        c.id === categoryId ? { ...c, options: [] } : c
+      ),
+    }));
+  }, []);
+
   const resetLibrary = useCallback(() => {
     setLibrary(DEFAULT_LIBRARY);
   }, []);
@@ -144,6 +153,7 @@ export function useLibrary() {
     addOption,
     updateOption,
     removeOption,
+    removeAllOptions,
     resetLibrary,
     importLibrary,
   };

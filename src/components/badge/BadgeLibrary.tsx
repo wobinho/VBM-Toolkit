@@ -298,6 +298,20 @@ function CategoryEditor({
                 >
                   Select
                 </button>
+                {category.options.length > 0 && (
+                  <button
+                    type="button"
+                    className="text-[11px] px-2 py-1 rounded hover:bg-danger/10 hover:text-danger transition-colors text-fg-dim"
+                    onClick={() => {
+                      if (confirm(`Delete all ${category.options.length} values in "${category.label}"?`)) {
+                        onRemoveMany(category.options.map(o => o.id));
+                      }
+                    }}
+                    title="Delete all values in this field"
+                  >
+                    Delete all
+                  </button>
+                )}
                 <span className="tag text-[10px]">
                   {category.options.length} value
                   {category.options.length === 1 ? "" : "s"}
