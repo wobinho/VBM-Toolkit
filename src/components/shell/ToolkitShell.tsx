@@ -50,6 +50,7 @@ export function ToolkitShell({
             <NavLink href="/" label="Tools" />
             <NavLink href="/tools/portrait-prompt" label="Portraits" />
             <NavLink href="/tools/club-badge" label="Badges" />
+            <NavLink href="/tools/player-forge" label="Players" />
             <span className="w-px h-4 mx-2" style={{ background: "var(--color-line-2)" }} />
             <a
               href="https://github.com"

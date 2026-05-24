@@ -33,12 +33,12 @@ export const TOOLS: ToolEntry[] = [
   },
   {
     no: "03",
-    slug: "roster-namer",
-    href: null,
-    name: "Roster Name Forge",
+    slug: "player-forge",
+    href: "/tools/player-forge",
+    name: "Player Forge",
     blurb:
-      "Procedural name generator weighted by region, era and pronunciation phonemes — wired straight to the player import pipeline.",
-    status: "queued",
+      "Mass-create custom players for the Custom Save importer — bio fields with scoped randomization, grouped stat editor with ±5 jitter, and five-tier archetype presets.",
+    status: "live",
     category: "Database",
   },
   {
