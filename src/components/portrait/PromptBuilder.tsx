@@ -56,7 +56,7 @@ export function PromptBuilder({
       {/* — selectors — */}
       <div className="col-span-12 lg:col-span-8">
         <div
-          className="flex items-end justify-between pb-3 mb-5 border-b"
+          className="flex flex-wrap items-end justify-between gap-y-3 pb-3 mb-5 border-b"
           style={{ borderColor: "var(--color-line-2)" }}
         >
           <div>
@@ -189,7 +189,7 @@ export function PromptBuilder({
 
       {/* — assembled prompt — */}
       <aside className="col-span-12 lg:col-span-4">
-        <div className="sticky top-[150px] space-y-3">
+        <div className="lg:sticky lg:top-[150px] space-y-3">
           <div className="card overflow-hidden">
             <div
               className="flex items-center justify-between px-4 py-3 border-b"

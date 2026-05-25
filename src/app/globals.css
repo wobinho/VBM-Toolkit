@@ -48,6 +48,7 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
   }
 
   ::selection {
@@ -284,5 +285,37 @@
   }
   .rise-in {
     animation: riseIn 0.5s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  }
+
+  /* — hide scrollbar while keeping scroll — */
+  .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+  .scrollbar-none::-webkit-scrollbar { display: none; }
+}
+
+/* — touch device overrides: bigger tap targets, friendlier controls — */
+@media (pointer: coarse) {
+  .btn { min-height: 44px; }
+
+  .btn-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .field-input {
+    padding-top: 0.625rem;    /* 10px */
+    padding-bottom: 0.625rem;
+  }
+
+  .stat-slider {
+    height: 32px;
+  }
+  .stat-slider::-webkit-slider-thumb {
+    width: 20px;
+    height: 20px;
+    margin-top: -8px;
+  }
+  .stat-slider::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
   }
 }

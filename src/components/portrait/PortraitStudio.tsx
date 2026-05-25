@@ -20,7 +20,7 @@ export function PortraitStudio() {
   return (
     <>
       {/* — header — */}
-      <section className="mx-auto max-w-[1180px] px-6 pt-14 pb-9">
+      <section className="mx-auto max-w-[1180px] px-4 sm:px-6 pt-10 sm:pt-14 pb-7 sm:pb-9">
         <div className="overline mb-4">Tool 01 — Generative</div>
         <h1 className="font-display text-[2.1rem] sm:text-[2.7rem] font-semibold tracking-[-0.03em] leading-[1.08] max-w-[24ch]">
           Compose thousands of distinct portraits from one base prompt.
@@ -54,7 +54,7 @@ export function PortraitStudio() {
           backdropFilter: "blur(10px)",
         }}
       >
-        <div className="mx-auto max-w-[1180px] px-6 flex items-center justify-between">
+        <div className="mx-auto max-w-[1180px] px-4 sm:px-6 flex items-center justify-between">
           <div className="flex items-center gap-1">
             <TabButton active={tab === "compose"} onClick={() => setTab("compose")}>
               Compose
@@ -79,7 +79,7 @@ export function PortraitStudio() {
 
       <section
         key={tab}
-        className="mx-auto max-w-[1180px] px-6 py-8 rise-in"
+        className="mx-auto max-w-[1180px] px-4 sm:px-6 py-6 sm:py-8 rise-in"
       >
         {tab === "compose" ? (
           <PromptBuilder

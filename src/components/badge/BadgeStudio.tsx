@@ -18,7 +18,7 @@ export function BadgeStudio() {
   return (
     <>
       {/* — header — */}
-      <section className="mx-auto max-w-[1180px] px-6 pt-14 pb-9">
+      <section className="mx-auto max-w-[1180px] px-4 sm:px-6 pt-10 sm:pt-14 pb-7 sm:pb-9">
         <div className="overline mb-4">Tool 02 — Visual</div>
         <h1 className="font-display text-[2.1rem] sm:text-[2.7rem] font-semibold tracking-[-0.03em] leading-[1.08] max-w-[24ch]">
           Build a club badge prompt from a shape, a motif and three colours.
@@ -49,7 +49,7 @@ export function BadgeStudio() {
           backdropFilter: "blur(10px)",
         }}
       >
-        <div className="mx-auto max-w-[1180px] px-6 flex items-center justify-between">
+        <div className="mx-auto max-w-[1180px] px-4 sm:px-6 flex items-center justify-between">
           <div className="flex items-center gap-1">
             <TabButton active={tab === "compose"} onClick={() => setTab("compose")}>
               Compose
@@ -72,7 +72,7 @@ export function BadgeStudio() {
         </div>
       </div>
 
-      <section key={tab} className="mx-auto max-w-[1180px] px-6 py-8 rise-in">
+      <section key={tab} className="mx-auto max-w-[1180px] px-4 sm:px-6 py-6 sm:py-8 rise-in">
         {tab === "compose" ? (
           <BadgeCompose bb={bb} />
         ) : (

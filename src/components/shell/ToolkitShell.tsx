@@ -27,8 +27,8 @@ export function ToolkitShell({
           backdropFilter: "blur(10px)",
         }}
       >
-        <div className="mx-auto max-w-[1180px] px-6 h-14 flex items-center justify-between gap-6">
-          <Link href="/" className="flex items-center gap-2.5 group">
+        <div className="mx-auto max-w-[1180px] px-4 sm:px-6 h-14 flex items-center justify-between gap-3 sm:gap-6 min-w-0">
+          <Link href="/" className="flex items-center gap-2.5 group shrink-0">
             <span
               className="w-6 h-6 grid place-items-center rounded-[5px] font-mono text-[11px] font-semibold"
               style={{
@@ -39,22 +39,22 @@ export function ToolkitShell({
               V
             </span>
             <span className="font-display text-[15px] font-semibold tracking-tight">
-              VBM Toolkit
+              VBM<span className="hidden sm:inline"> Toolkit</span>
             </span>
-            <span className="font-mono text-[10px] text-fg-faint mt-0.5">
+            <span className="hidden sm:block font-mono text-[10px] text-fg-faint mt-0.5">
               v0.2
             </span>
           </Link>
 
-          <nav className="flex items-center gap-0.5">
+          <nav className="flex items-center gap-0.5 overflow-x-auto scrollbar-none min-w-0">
             <NavLink href="/" label="Tools" />
             <NavLink href="/tools/portrait-prompt" label="Portraits" />
             <NavLink href="/tools/club-badge" label="Badges" />
             <NavLink href="/tools/player-forge" label="Players" />
-            <span className="w-px h-4 mx-2" style={{ background: "var(--color-line-2)" }} />
+            <span className="hidden sm:block w-px h-4 mx-1.5 shrink-0" style={{ background: "var(--color-line-2)" }} />
             <a
               href="https://github.com"
-              className="btn btn-ghost text-[12px]"
+              className="hidden sm:inline-flex btn btn-ghost text-[12px] shrink-0"
               target="_blank"
               rel="noreferrer"
             >
@@ -65,7 +65,7 @@ export function ToolkitShell({
 
         {/* — breadcrumb strip — */}
         <div className="border-t" style={{ borderColor: "var(--color-line)" }}>
-          <div className="mx-auto max-w-[1180px] px-6 h-9 flex items-center justify-between text-[11.5px] font-mono">
+          <div className="mx-auto max-w-[1180px] px-4 sm:px-6 h-9 flex items-center justify-between text-[11.5px] font-mono">
             <div className="flex items-center gap-1.5 text-fg-dim">
               {crumbs.map((c, i) => (
                 <span key={i} className="flex items-center gap-1.5">
@@ -97,7 +97,7 @@ export function ToolkitShell({
 
       {/* — footer — */}
       <footer className="mt-24 border-t" style={{ borderColor: "var(--color-line)" }}>
-        <div className="mx-auto max-w-[1180px] px-6 py-7 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-[11.5px]">
+        <div className="mx-auto max-w-[1180px] px-4 sm:px-6 py-7 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-[11.5px]">
           <span className="text-fg-dim">
             VBM Toolkit — a side workshop for the Volleyball Manager project.
           </span>

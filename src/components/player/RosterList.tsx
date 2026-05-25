@@ -40,8 +40,8 @@ export function RosterList({ store }: Props) {
 
   return (
     <aside
-      className="card overflow-hidden flex flex-col"
-      style={{ borderColor: "var(--color-line)", maxHeight: "calc(100vh - 220px)" }}
+      className="card overflow-hidden flex flex-col max-h-[50vh] lg:max-h-[calc(100vh-220px)]"
+      style={{ borderColor: "var(--color-line)" }}
     >
       <header
         className="px-3 py-2.5 border-b flex items-center justify-between"
@@ -149,7 +149,7 @@ function RosterRow({
             </span>
           </div>
         </div>
-        <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="flex items-center opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
           <button
             type="button"
             className="btn-icon"

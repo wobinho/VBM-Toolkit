@@ -8,7 +8,7 @@ export default function HomePage() {
 
   return (
     <ToolkitShell toolName="Index" crumbs={[{ label: "Toolkit" }]}>
-      <div className="mx-auto max-w-[1180px] px-6 pt-12 pb-24">
+      <div className="mx-auto max-w-[1180px] px-4 sm:px-6 pt-10 sm:pt-12 pb-20 sm:pb-24">
         {/* — page header strip — */}
         <div
           className="rise-in flex items-baseline justify-between pb-3 border-b"

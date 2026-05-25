@@ -45,14 +45,14 @@ export function PlayerEditor({ player, store }: Props) {
         style={{ borderColor: "var(--color-line)" }}
       >
         <OverallPill value={overall} size="lg" />
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h2 className="font-display text-[20px] font-semibold tracking-tight truncate max-w-[24ch]">
               {player.player_name || "Unnamed Player"}
             </h2>
             <PositionBadge position={player.position} size="md" />
           </div>
-          <div className="flex items-center gap-3 mt-0.5">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
             <span className="font-mono text-[11.5px] text-fg-dim tab-fig">
               {player.age}yo · {player.height}cm · #{player.jersey_number}
             </span>
@@ -65,7 +65,7 @@ export function PlayerEditor({ player, store }: Props) {
             </span>
           </div>
         </div>
-        <div className="ml-auto flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto sm:ml-auto">
           <button
             type="button"
             onClick={() => store.randomizeAllStats(player.id)}
